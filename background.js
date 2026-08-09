@@ -137,11 +137,6 @@ const SCOPE_PREFIXES = [
 ];
 
 // 工具函数
-function matchText(text, query) {
-  if (!query) return true;
-  return text.toLowerCase().includes(query.toLowerCase());
-}
-
 function fuzzyMatch(text, query) {
   if (!query) return true;
   const lowerText = text.toLowerCase();
@@ -209,7 +204,7 @@ async function searchTabs(query, limit) {
       displayTitle: tab.title || tab.url || '无标题',
       score: scoreResult({ title: tab.title, url: tab.url }, query)
     }))
-    .filter(t => !query || t.score > 0 || matchText(t.title + ' ' + t.url, query))
+    .filter(t => !query || t.score > 0)
     .sort((a, b) => b.score - a.score);
 
   return scored.slice(0, limit).map(t => ({
@@ -268,7 +263,11 @@ async function searchBookmarks(query, limit) {
       type: 'bookmark',
       score: scoreResult({ title: b.title, url: b.url }, query)
     }))
-    .sort((a, b) => b.score - a.score);
+    .filter(b => !query || b.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (a.dateAdded || 0) - (b.dateAdded || 0);  // 空查询时按添加时间排序
+    });
 
   return scored.slice(0, limit).map(b => ({
     id: `bookmark-${b.id}`,
@@ -453,20 +452,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === 'GET_RECENT_TABS') {
-    chrome.tabs.query({ currentWindow: true }).then(tabs => {
-      sendResponse({
-        tabs: tabs.slice(0, 10).map(t => ({
-          id: t.id,
-          title: t.title || t.url,
-          url: t.url,
-          active: t.active
-        }))
-      });
-    });
-    return true;
-  }
-
   return false;
 });
 
@@ -496,8 +481,7 @@ async function openPaletteInTab(tab) {
       const ok = await sendOpen(nt.id);
       if (!ok) {
         try {
-          await chrome.scripting.executeScript({ target: { tabId: nt.id }, files: ['content.js'] });
-          await chrome.scripting.insertCSS({ target: { tabId: nt.id }, files: ['palette.css'] });
+          await injectContentScript(nt.id);
           setTimeout(() => sendOpen(nt.id).catch(() => {}), 180);
         } catch (_) { /* 依然受限，忽略 */ }
       }
@@ -509,13 +493,36 @@ async function openPaletteInTab(tab) {
   if (ok) return;
 
   try {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-    await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ['palette.css'] });
+    await injectContentScript(tab.id);
     setTimeout(() => sendOpen(tab.id).catch(() => {}), 180);
   } catch (e) {
     console.error('Inject content script failed:', e);
   }
 }
+
+// 注入 content script：先重置注入守卫，再注入 JS 和 CSS
+async function injectContentScript(tabId) {
+  // 先清除旧守卫（扩展重载后旧 context 已失效，但 __GOFUN_INJECTED__ 仍为 true）
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => { window.__GOFUN_INJECTED__ = false; }
+  }).catch(() => {});
+  await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+  await chrome.scripting.insertCSS({ target: { tabId }, files: ['palette.css'] });
+}
+
+// 扩展安装/更新时，主动向所有 http(s) 标签页注入 content script
+// 解决"扩展安装前已打开的页面快捷键无效"的问题
+chrome.runtime.onInstalled.addListener(async () => {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (/^https?:\/\//.test(tab.url || '')) {
+        injectContentScript(tab.id).catch(() => {});
+      }
+    }
+  } catch (_) {}
+});
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'open-palette') return;
@@ -527,3 +534,39 @@ chrome.commands.onCommand.addListener(async (command) => {
 chrome.action.onClicked.addListener(async (tab) => {
   await openPaletteInTab(tab);
 });
+
+// ========= 标签页缓存 =========
+// 将当前窗口的标签页列表写入 chrome.storage.local
+// content script 打开面板时可直接读取（无需等待 SW 唤醒），实现秒开
+let cacheTimer = null;
+async function cacheTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const simplified = tabs.map(t => ({
+      id: `tab-${t.id}`,
+      type: 'tab',
+      title: t.title || t.url || '无标题',
+      subtitle: t.url,
+      url: t.url,
+      tabId: t.id,
+      active: t.active,
+      icon: 'tab'
+    }));
+    await chrome.storage.local.set({ cachedTabs: simplified });
+  } catch (e) { /* SW 上下文失效时忽略 */ }
+}
+
+// 防抖：短时间内多个 tab 事件合并为一次写入
+function cacheTabsDebounced() {
+  clearTimeout(cacheTimer);
+  cacheTimer = setTimeout(cacheTabs, 100);
+}
+
+// 启动时立即缓存一次
+cacheTabs();
+
+// 监听 tab 变化，实时更新缓存
+chrome.tabs.onCreated.addListener(cacheTabsDebounced);
+chrome.tabs.onUpdated.addListener(cacheTabsDebounced);
+chrome.tabs.onRemoved.addListener(cacheTabsDebounced);
+chrome.tabs.onActivated.addListener(cacheTabsDebounced);

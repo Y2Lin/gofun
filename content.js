@@ -34,10 +34,8 @@
     refresh: '<svg viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     'arrow-left': '<svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     'arrow-right': '<svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    trash: '<svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     grid: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
-    settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
-    download: '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
   };
 
   // 命令快照：与 background COMMANDS 保持字段一致（无 action），用于首次打开面板时立即渲染，不等 SW 响应
@@ -383,11 +381,21 @@
     lastQuery = '';
     showScope('');
 
-    // 立即用内置命令快照渲染首屏（同步，无延迟），避免等待 SW 冷启动时显示"搜索中"
+    // Phase 1（0ms）：立即用内置命令快照渲染首屏
     results = COMMAND_SNAPSHOT.slice();
     renderResults(results);
 
-    // 异步请求真实结果（含 tabs），回来后覆盖快照
+    // Phase 2（~1ms）：从 storage 读取缓存的标签页（无需 SW，极快）
+    chrome.storage.local.get('cachedTabs', ({ cachedTabs }) => {
+      if (!isVisible) return;
+      if (cachedTabs && cachedTabs.length > 0) {
+        results = [...cachedTabs.slice(0, 12), ...COMMAND_SNAPSHOT.slice(0, 8)];
+        selectedIndex = 0;
+        renderResults(results);
+      }
+    });
+
+    // Phase 3（~50-200ms）：异步请求 SW 获取最新结果，覆盖缓存
     performSearch('');
   }
 
@@ -424,11 +432,9 @@
         return;
       }
       const newResults = response?.results || [];
-      if (newResults.length > 0) {
-        results = newResults;
-        selectedIndex = 0;
-        renderResults(results);
-      }
+      results = newResults;
+      selectedIndex = results.length > 0 ? 0 : -1;
+      renderResults(results);
     });
   }
 
@@ -529,11 +535,13 @@
     return false;
   });
 
-  // 全局快捷键 & 面板导航（捕获阶段，面板可见时任何 DOM 上按都生效）
-  // - Ctrl+P：页面层拦截，开 / 关面板（Chrome 不注册此快捷键，不冲突）
-  // - Ctrl+Shift+P：由 Chrome manifest command 处理，不在此重复拦截（避免双重触发竞态）
-  // - 上下键、Tab、翻页、Ctrl+Home/End、Enter、Esc：面板内统一导航
-  document.addEventListener('keydown', (e) => {
+  // 全局快捷键 & 面板导航
+  // 挂在 window（而非 document）上，确保在 capture 阶段最先执行
+  // 部分大站（如淘宝）在 window capture 阶段 stopPropagation，挂在 document 上会收不到事件
+  // - Ctrl+P：页面层拦截，开 / 关面板
+  // - Ctrl+Shift+P：由 Chrome manifest command 处理，不在此重复拦截
+  // - 上下键、Tab、翻页、Ctrl+Home/End、Enter、Esc：面板内导航
+  window.addEventListener('keydown', (e) => {
     const isCtrl = e.ctrlKey || e.metaKey;
     const isShift = e.shiftKey;
     const isP = e.key && e.key.toLowerCase() === 'p';

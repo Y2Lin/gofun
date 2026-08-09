@@ -9,7 +9,7 @@
 **GoFun**（谐音 Go & Find）是一个 Chrome/Edge Manifest V3 浏览器扩展，功能类似 VSCode `Ctrl+Shift+P` 命令面板：
 - 按快捷键呼出悬浮面板
 - 模糊搜索当前窗口的 Tab、浏览历史、书签，并可执行内置命令
-- 支持范围前缀（`/t` `/h` `/b` `/c`）和命令缩写（`/n` `/w` `/r` 等）
+- 支持范围前缀（`/tabs` `/t` `/history` `/h` `/bookmarks` `/b` `/commands` `/c`）和命令缩写（`/n` `/w` `/r` 等）
 - Apple Spotlight 风格毛玻璃 UI，无构建依赖，纯原生 JS/CSS
 
 ---
@@ -19,7 +19,7 @@
 ```
 e:\Dev\gofun\
 ├── manifest.json       # MV3 配置：权限、快捷键、content script、图标
-├── background.js       # Service Worker：搜索逻辑、命令执行、消息路由
+├── background.js       # Service Worker：搜索逻辑、命令执行、消息路由、Tab 缓存
 ├── content.js          # 注入到页面的 UI：面板 DOM、键盘/鼠标交互、渲染
 ├── palette.css         # 面板全部样式（浅/深色模式 + 窄屏响应式）
 ├── README.md           # 用户使用说明
@@ -39,23 +39,26 @@ e:\Dev\gofun\
 ## 架构总览
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     Chrome 浏览器                        │
-│                                                         │
-│  ┌──────────────┐  commands API    ┌─────────────────┐  │
-│  │ 快捷键/图标  │ ───────────────► │  background.js  │  │
-│  │ Ctrl+Shift+P │                  │ (Service Worker)│  │
-│  │ action click │ ◄────OPEN_PALETTE┤                 │  │
-│  └──────────────┘  message         └────────┬────────┘  │
-│         ▲                                   │ SEARCH/   │
-│         │ 注入/动态注入                      │ EXECUTE   │
-│         │                           message │           │
-│  ┌──────┴───────┐                          ▼           │
-│  │  content.js  │ ◄──────────────────────────┘         │
-│  │ (注入到页面) │  面板 UI / 键盘 / 鼠标 / 渲染          │
-│  │ palette.css  │                                       │
-│  └──────────────┘                                       │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                       Chrome 浏览器                          │
+│                                                             │
+│  ┌──────────────┐  commands API    ┌─────────────────────┐  │
+│  │ 快捷键/图标  │ ───────────────► │  background.js       │  │
+│  │ Ctrl+Shift+P │                  │ (Service Worker)     │  │
+│  │ action click │ ◄────OPEN_PALETTE┤                      │  │
+│  └──────┬───────┘  message         └──────────┬───────────┘  │
+│         │                                   │ SEARCH/       │
+│         │ Ctrl+P (window capture)           │ EXECUTE/      │
+│         │                           message │ GET_TAB_CACHE  │
+│  ┌──────┴───────┐                          ▼               │
+│  │  content.js  │ ◄──────────────────────────┘              │
+│  │ (注入到页面) │  面板 UI / 键盘 / 鼠标 / 渲染               │
+│  │ palette.css  │                                            │
+│  └──────────────┘                                            │
+│         ▲                                                    │
+│         │ chrome.storage.local (Tab 快照缓存)                │
+│         └──────────────────────────────────────────────────  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### 三端职责
@@ -63,8 +66,8 @@ e:\Dev\gofun\
 | 模块 | 运行环境 | 职责 |
 |---|---|---|
 | **manifest.json** | Chrome 解析 | 声明权限、快捷键绑定、资源入口 |
-| **background.js** | Service Worker | ① 接收 `SEARCH`/`EXECUTE`/`PING` 消息 ② 调 chrome.* API 搜索 tabs/history/bookmarks ③ 打分排序 ④ 执行命令 action ⑤ 处理 chrome:// 受限页 fallback 注入 |
-| **content.js** | 网页上下文 | ① 创建/销毁面板 DOM ② 捕获键盘事件 ③ 60ms debounce 触发搜索 ④ 渲染结果列表、高亮、favicon ⑤ 鼠标 hover/键盘选择 ⑥ 执行选中项时发 `EXECUTE` 消息 |
+| **background.js** | Service Worker | ① 接收 `SEARCH`/`EXECUTE`/`PING`/`GET_TAB_CACHE` 消息 ② 调 chrome.* API 搜索 tabs/history/bookmarks ③ 打分排序 ④ 执行命令 action ⑤ 处理 chrome:// 受限页 fallback 注入 ⑥ 监听 Tab 事件写 `chrome.storage.local` 缓存 ⑦ `onInstalled` 时主动注入所有已打开标签页 |
+| **content.js** | 网页上下文 | ① 创建/销毁面板 DOM ② 在 `window` capture 阶段捕获键盘事件 ③ 60ms debounce 触发搜索 ④ 渲染结果列表、高亮、favicon ⑤ 鼠标 hover/键盘选择 ⑥ 执行选中项时发 `EXECUTE` 消息 ⑦ 打开面板时先读 `chrome.storage.local` 缓存秒显 Tab 列表 |
 
 ---
 
@@ -79,6 +82,7 @@ e:\Dev\gofun\
 | `PING` | 无 | `{ pong: true }`（用于预热 SW） |
 | `SEARCH` | `{ query: string }` | `{ results: ResultItem[] }` |
 | `EXECUTE` | `{ item: ResultItem }` | `{ success: boolean, error?: string }` |
+| `GET_TAB_CACHE` | 无 | `{ tabs: ResultItem[] }`（从 storage 读取，SW 无需活跃） |
 
 ### background → content
 
@@ -94,7 +98,7 @@ e:\Dev\gofun\
 
 ### ResultItem（搜索结果项）
 
-三种类型，通过 `type` 字段区分：
+四种类型，通过 `type` 字段区分：
 
 ```js
 // Tab
@@ -105,14 +109,14 @@ e:\Dev\gofun\
 { type: 'bookmark', id: 'bookmark-<id>', title, url, icon: 'bookmark' }
 // Command
 { type: 'command',  id: 'cmd.xxx',  title, subtitle, icon: '<iconKey>',
-  alias: string[],       // GoFun 命令缩写，如 ['/n']，参与搜索 + UI 右侧蓝紫色胶囊
+  alias: string[],       // GoFun 命令缩写，如 ['/n']，参与搜索 + UI 右侧蓝色胶囊
   browserKbd?: string,   // 浏览器原生快捷键，如 'Ctrl T'，UI 右侧灰色淡显
   keywords?: string[],   // 英文搜索关键词（不显示在 UI 上）
   action: Function       // 仅 background 有，content 中被剥离
 }
 ```
 
-### Command 定义（background COMMANDS 数组）
+### Command 定义（background COMMANDS 数组，共 10 条）
 
 ```js
 {
@@ -128,6 +132,21 @@ e:\Dev\gofun\
 }
 ```
 
+**当前 10 条命令**：
+
+| 命令 | alias | browserKbd | keywords |
+|---|---|---|---|
+| 新建标签页 | `/n` | Ctrl T | new, tab, newtab, open |
+| 关闭当前标签页 | `/w` | Ctrl W | close, closetab, remove |
+| 复制当前标签页 | `/dup` | — | duplicate, copy, clone |
+| 重新加载当前页 | `/r` | Ctrl R | reload, refresh, f5 |
+| 后退 | `/back` | Alt ← | back, goback, previous |
+| 前进 | `/fwd` | Alt → | forward, next, goforward |
+| 管理扩展 | `/ext` | — | extensions, ext, addon, plugin |
+| 浏览器设置 | `/set` | — | settings, config, preferences, setup |
+| 书签管理器 | `/bm` | Ctrl Shift O | bookmarks, bookmark, fav, star |
+| 历史记录 | `/his` | Ctrl H | history, recent, visited |
+
 **新增命令的步骤**：
 1. 在 `background.js` 的 `COMMANDS` 数组添加一项（含 `action`）
 2. 在 `content.js` 的 `COMMAND_SNAPSHOT` 数组添加同样的项（不含 `action`/`keywords`）
@@ -139,9 +158,9 @@ e:\Dev\gofun\
 background 和 content **各自维护一份同结构定义**，必须保持同步：
 
 ```js
-{ scope: 'tabs', full: '/tabs', short: '/t' }
-{ scope: 'history', full: '/history', short: '/h' }
-{ scope: 'bookmarks', full: '/bookmarks', short: '/b' }
+{ scope: 'tabs',     full: '/tabs',     short: '/t' }
+{ scope: 'history',  full: '/history',  short: '/h' }
+{ scope: 'bookmarks',full: '/bookmarks',short: '/b' }
 { scope: 'commands', full: '/commands', short: '/c' }
 ```
 
@@ -182,6 +201,18 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 - 历史记录限制：最近 90 天、最多 100 条候选（避免遍历全部历史）
 - 按 tab → command → history → bookmark 顺序合并去重
 
+### Tab 缓存机制（三阶段渐进渲染）
+
+| 阶段 | 延迟 | 数据来源 | 内容 |
+|---|---|---|---|
+| Phase 1 | 0ms | 内置 `COMMAND_SNAPSHOT` | 10 条命令立即出现 |
+| Phase 2 | ~1ms | `chrome.storage.local` 缓存 | Tab 列表从本地存储读出，无需 SW |
+| Phase 3 | ~50-200ms | SW `chrome.tabs.query` | 最新结果覆盖缓存 |
+
+- background 启动时立即写一次缓存
+- 监听 `onCreated`/`onUpdated`/`onRemoved`/`onActivated` 四个事件，100ms 防抖写入
+- SW 休眠后 storage 数据依然在，打开面板秒读
+
 ---
 
 ## 快捷键体系
@@ -191,13 +222,14 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 | 快捷键 | 处理方 | 场景 |
 |---|---|---|
 | `Ctrl+Shift+P` / `Cmd+Shift+P` | Chrome `commands` API（manifest 注册） | 官方保底，所有页面（含 chrome://）可用 |
-| `Ctrl+P` / `Cmd+P` | content.js `document` 捕获阶段 keydown | 普通 http(s) 页面拦截，阻止打印对话框 |
+| `Ctrl+P` / `Cmd+P` | content.js `window` 捕获阶段 keydown | 普通 http(s) 页面拦截，阻止打印对话框 |
 
 **为什么分两层**：Chrome 不允许扩展覆盖 `Ctrl+P`（打印是保留快捷键）。manifest 里只能绑 `Ctrl+Shift+P`，`Ctrl+P` 靠页面 keydown 在 capture 阶段 `preventDefault()`。chrome:// 页面 content script 无法注入，所以 `Ctrl+P` 在这些页面会触发打印；`Ctrl+Shift+P` 始终可用。
 
 ### content.js 键盘处理
 
-- **全局导航**（`handleGlobalNav`）：面板可见时，`↑↓` `Tab` `Enter` `Esc` `PgUp/PgDn` `Ctrl+Home/End` 在 document 捕获阶段统一处理，焦点在哪都生效
+- **keydown 挂在 `window` 而非 `document`**：部分大站（如淘宝）在 `window` capture 阶段 `stopPropagation()`，挂在 `document` 上会收不到事件。`window` 是 capture 链最前端，任何网站的 handler 都无法抢在前面。
+- **全局导航**（`handleGlobalNav`）：面板可见时，`↑↓` `Tab` `Enter` `Esc` `PgUp/PgDn` `Ctrl+Home/End` 统一处理，焦点在哪都生效
 - **Ctrl 组合键放行**：除了 `Ctrl+Home/End`，其他 Ctrl/Cmd 组合键（`Ctrl+T` `Ctrl+W` `Ctrl+Tab` 等）一律不拦截，让浏览器原生快捷键工作
 - **可编辑元素保护**：页面的 `<input>` `<textarea>` `contentEditable` 内按 `Ctrl+P` 不触发面板
 - **面板内 Ctrl+P**：关闭面板
@@ -210,13 +242,15 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 ## 性能优化点
 
 1. **SW 冷启动预热**：content script 注入后立即发 `PING` 消息唤醒 SW，用户按快捷键时 SW 通常已活跃
-2. **命令快照即时渲染**：`openPalette()` 同步渲染 `COMMAND_SNAPSHOT`（10条内置命令），不等 SW 响应；真实结果（含 tabs）异步返回后覆盖
-3. **延迟 Loading**：结果 120ms 内返回则不显示"搜索中…"，避免闪烁
-4. **60ms debounce**：输入时防抖，避免每次按键都发搜索
-5. **竞态序号 searchSeq**：快速输入时过期响应静默丢弃
-6. **空查询只搜 Tab+命令**：不碰历史/书签 API
-7. **历史记录 90 天限制**：避免遍历全部历史
-8. **选中态 class 切换不重建 DOM**：`updateSelectionClass()` 只移动 `.qp-selected` class，避免 mouseenter 与键盘导航冲突
+2. **命令快照即时渲染**：`openPalette()` 同步渲染 `COMMAND_SNAPSHOT`（10条内置命令），不等 SW 响应
+3. **Tab 缓存秒显**：`chrome.storage.local` 存储 Tab 快照，打开面板时 ~1ms 读出，无需等 SW
+4. **延迟 Loading**：结果 120ms 内返回则不显示"搜索中…"，避免闪烁
+5. **60ms debounce**：输入时防抖，避免每次按键都发搜索
+6. **竞态序号 searchSeq**：快速输入时过期响应静默丢弃
+7. **空查询只搜 Tab+命令**：不碰历史/书签 API
+8. **历史记录 90 天限制**：避免遍历全部历史
+9. **选中态 class 切换不重建 DOM**：`updateSelectionClass()` 只移动 `.qp-selected` class，避免 mouseenter 与键盘导航冲突
+10. **onInstalled 主动注入**：扩展安装/更新时向所有已打开的 http(s) 标签页注入 content script，避免"老页面快捷键无效"
 
 ---
 
@@ -231,45 +265,47 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 
 ### 图标策略
 
-- **命令类型**：用 `content.js ICONS` 中的内联 SVG，放在 `.qp-icon` 灰底圆角方形容器里
-- **Tab/历史/书签**：优先用网站 favicon（`https://www.google.com/s2/favicons?domain=...&sz=32`），容器自动去掉灰底（`:has(.qp-favicon)` 选择器），失败时 fallback 到内置 SVG
-- **favicon 容错**：`safeHostname()` 包 try-catch 处理 `chrome://` 等非法 URL；img onerror 替换为 `.qp-favicon-fallback` 占位
+- **命令类型**：用 `content.js ICONS` 中的内联 SVG，无容器边框，直接 18px 显示，颜色跟 `currentColor`
+- **Tab/历史/书签**：优先用网站 favicon（`https://www.google.com/s2/favicons?domain=...&sz=32`），22px 裸显示无包裹，失败时 fallback 到 `.qp-favicon-fallback` 占位色块
+- **favicon 容错**：`safeHostname()` 包 try-catch 处理 `chrome://` 等非法 URL
 
 ### 视觉风格
 
-- **Apple 毛玻璃风**：`backdrop-filter: blur(30px) saturate(180%)`、0.5px hairline 描边、三层克制阴影
-- **深色模式**：通过 `@media (prefers-color-scheme: dark)` 切换，不用纯黑，用奶茶灰紫（#2a2e42 系）
-- **响应式**：`@media (max-width: 560px)` 缩小间距和字号，适配手机
-- **动画**：入场 `translateY(-6px) scale(0.992)` → 0 弹性回弹，160ms fade；结果切换无动画
+- **Apple Spotlight 纯净风**：纯白毛玻璃 `rgba(255,255,255,0.92)` + `blur(40px) saturate(180%)`，1px 极淡描边，单层阴影 `0 24px 80px rgba(0,0,0,0.16)`
+- **主色**：Apple 系统蓝 `#007aff`（浅色）/ `#0a84ff`（深色）
+- **选中态**：`rgba(0, 122, 255, 0.1)` 浅蓝半透明背景，文字保持深色不反白，图标变蓝
+- **hover 态**：`rgba(0, 0, 0, 0.04)` 极淡灰
+- **匹配高亮**：`#007aff` 蓝色文字 + `font-weight: 500`
+- **深色模式**：`rgba(40, 40, 42, 0.92)` 柔和深灰（不用纯黑），选中态 `rgba(10, 132, 255, 0.18)`
+- **响应式**：`@media (max-width: 560px)` 缩小间距和字号
+- **动画**：入场 `translateY(-8px) scale(0.99)` → 0，200ms `cubic-bezier(0.22, 1, 0.36, 1)`
 - **入场 class 时机**：先 appendChild 到 DOM，强制 `overlay.offsetHeight` 回流，再加 `.qp-visible` class，确保 transition 生效
-
-### 选中态（.qp-selected）
-- 蓝紫渐变背景（#6b7aff → #8b6eff）
-- title/subtitle/match/shortcut 全部反色
-- 不重建 DOM，只切 class
+- **滚动条**：8px 宽，`background-clip: content-box` 留白
 
 ---
 
 ## 已知坑与注意事项
 
-1. **Service Worker 会休眠**：不能在 SW 里用全局变量存状态（会丢失），所有状态要么从 chrome.* API 实时取，要么用 `chrome.storage`
-2. **chrome:// 页面不能注入 content script**：`openPaletteInTab()` 检测到受限协议时，开新标签页（`chrome://newtab`）再尝试注入，失败则动态 `chrome.scripting.executeScript` 注入
-3. **content script 重复注入防护**：`window.__GOFUN_INJECTED__` 守卫，`chrome.scripting.executeScript` 动态注入时不会叠加
-4. **mouseenter 与键盘冲突**：不能在 mouseenter 里调用 renderResults（会重建 DOM 触发新的 mouseenter），只能调 `updateSelectionClass()` 移 class
-5. **上下键跳格问题**：只在 document 捕获阶段绑一次 `handleGlobalNav`，不要再在 input 上绑 keydown 转发（会执行两次）
-6. **favicon 外部依赖**：用了 google.com/s2/favicons，国内网络可能需要换备用源（如 `https://favicon.im/` 或本地无图 fallback）
-7. **Chrome 图标缓存**：更换 icons/ 下 PNG 后必须在 `chrome://extensions` 点刷新按钮，工具栏图标才更新
-8. **Ctrl/Cmd 统一判断**：所有跨平台判断用 `e.ctrlKey || e.metaKey`，`e.metaKey` 在 Mac 上是 Cmd
-9. **消息回调必须检查 chrome.runtime.lastError**：content script 发消息时 SW 可能已休眠或不存在，不检查会报 "Unchecked runtime.lastError"
-10. **SVG 图标必须 fill:none stroke:currentColor**：ICONS 里的 SVG 用 `stroke="currentColor"` 不硬编码颜色，选中态通过 CSS `color` 属性反色
-11. **manifest 权限中的 storage 未使用**：声明了但代码里没用到，未来若加持久化设置可以直接用；要精简权限可删除
-12. **history.search startTime:0** 空查询时传 0 是为了拿最近访问（Chrome 自身按 lastVisit 排）；有查询时限 90 天是性能优化
+1. **Service Worker 会休眠**：不能在 SW 里用全局变量存状态（会丢失），所有状态要么从 chrome.* API 实时取，要么用 `chrome.storage.local`
+2. **chrome:// 页面不能注入 content script**：`openPaletteInTab()` 检测到受限协议时，开新标签页（`chrome://newtab`）再尝试注入
+3. **content script 重复注入防护**：`window.__GOFUN_INJECTED__` 守卫；`injectContentScript()` 函数在动态注入前先执行 `window.__GOFUN_INJECTED__ = false` 清除旧守卫（扩展重载后旧 context 已死但守卫仍为 true）
+4. **onInstalled 主动注入**：扩展安装/更新后，已打开的页面没有 content script，`onInstalled` 监听器会向所有 http(s) 标签页注入。若用户手动 reload 扩展后某些页面仍无效，刷新该页面即可
+5. **keydown 必须挂 window**：大站（淘宝等）在 `window` capture 阶段 `stopPropagation()`，挂在 `document` 上会收不到事件
+6. **mouseenter 与键盘冲突**：不能在 mouseenter 里调用 renderResults（会重建 DOM 触发新的 mouseenter），只能调 `updateSelectionClass()` 移 class
+7. **上下键跳格问题**：只在 window 捕获阶段绑一次 `handleGlobalNav`，不要再在 input 上绑 keydown 转发（会执行两次）
+8. **favicon 外部依赖**：用了 google.com/s2/favicons，国内网络可能需要换备用源（如 `https://favicon.im/` 或本地无图 fallback）
+9. **Chrome 图标缓存**：更换 icons/ 下 PNG 后必须在 `chrome://extensions` 点刷新按钮，工具栏图标才更新
+10. **Ctrl/Cmd 统一判断**：所有跨平台判断用 `e.ctrlKey || e.metaKey`，`e.metaKey` 在 Mac 上是 Cmd
+11. **消息回调必须检查 chrome.runtime.lastError**：content script 发消息时 SW 可能已休眠或不存在，不检查会报 "Unchecked runtime.lastError"
+12. **SVG 图标必须 fill:none stroke:currentColor**：ICONS 里的 SVG 用 `stroke="currentColor"` 不硬编码颜色，选中态通过 CSS `color` 属性变色
+13. **storage 权限**：manifest 声明了 `storage` 权限，用于 `chrome.storage.local` 存储 Tab 快照缓存。不是无用权限
+14. **history.search startTime:0** 空查询时传 0 是为了拿最近访问（Chrome 自身按 lastVisit 排）；有查询时限 90 天是性能优化
 
 ---
 
 ## 扩展建议（未来可做）
 
-- **持久化设置**：用 `chrome.storage.sync` 存用户偏好（默认 scope、是否显示浏览器快捷键等）
+- **持久化用户偏好**：用 `chrome.storage.sync` 存默认 scope、是否显示浏览器快捷键等
 - **最近使用命令**：执行命令后存 frequency，排序时加权
 - **关闭其他标签页/关闭右侧标签页**等更多标签操作命令
 - **自定义 alias**：允许用户绑定自己的缩写
@@ -286,3 +322,4 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 - **扩展重新加载**：改完代码在 `chrome://extensions/` 点刷新按钮（圆形箭头），不需要重新"加载已解压扩展"
 - **快捷键冲突**：`chrome://extensions/shortcuts` 可查看和修改所有扩展快捷键绑定
 - **图标不更新**：清除浏览器缓存或重启 Chrome，扩展图标缓存比较顽固
+- **某页面快捷键无效**：① 确认是 http(s) 页面（chrome:// 不支持 Ctrl+P）② 刷新该页面（扩展重载后旧页面可能没有 content script）③ 检查 F12 Console 是否有 __GOFUN_INJECTED__ 相关错误
