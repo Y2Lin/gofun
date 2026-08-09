@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "GoFun - Go & Find 命令面板",
+  "version": "1.0.0",
+  "description": "GoFun（谐音 Go & Find）—— 使用快捷键呼出 VSCode 风格的命令面板，快速搜索打开的 Tab、历史记录、书签并执行命令。",
+  "permissions": [
+    "tabs",
+    "history",
+    "bookmarks",
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "open-palette": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "打开命令面板（官方保底快捷键，在所有页面都可用）"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["palette.css"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "GoFun - 打开命令面板",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}
