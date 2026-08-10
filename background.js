@@ -221,13 +221,13 @@ async function searchTabs(query, limit) {
 
 // 搜索历史
 async function searchHistory(query, limit) {
-  // 空查询：只取最近 50 条；有查询：限制最近 90 天、最多 100 条候选，避免遍历全部历史
+  // 统一限制最近 90 天，避免遍历全部历史（空查询也限，减少 Chrome 内部扫描范围）
   const now = Date.now();
   const ninetyDaysAgo = now - 90 * 24 * 60 * 60 * 1000;
   const historyItems = await chrome.history.search({
     text: query || '',
     maxResults: query ? Math.min(limit * 4, 100) : 50,
-    startTime: query ? ninetyDaysAgo : 0
+    startTime: ninetyDaysAgo
   });
 
   const scored = historyItems

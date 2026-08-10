@@ -1,15 +1,21 @@
 # GoFun - Go & Find 命令面板
 
-一个 Chrome / Edge 浏览器扩展，提供类似 VSCode 命令面板的快速搜索体验。名字 **GoFun** 谐音 **Go & Find**，寓意「快速去找到你想要的」。
+一个 Chrome / Edge 浏览器扩展，提供 **Apple Spotlight 风格**的命令面板搜索体验。名字 **GoFun** 谐音 **Go & Find**，寓意「快速去找到你想要的」。
 
 ## 功能
 
-- **默认搜索打开的 Tab 页**：输入关键字快速切换标签页，关键字会在标题和 URL 中高亮显示。
-- **搜索浏览历史**：按标题或 URL 搜索历史记录。
+- **默认搜索打开的 Tab 页**：输入关键字快速切换标签页，关键字在标题和 URL 中高亮显示。
+- **搜索浏览历史**：按标题或 URL 搜索最近 90 天的历史记录。
 - **搜索书签**：快速打开书签。
-- **内置命令**：新建/关闭/复制标签页、前进后退、刷新、打开设置/扩展/下载/历史页面等。
-- **范围限定**：使用前缀 `/tabs`、`/history`、`/bookmarks`、`/commands` 快速切换搜索范围。
-- **流畅体验**：搜索请求自动去重（避免竞态覆盖新结果）、空查询只显示 Tab + 常用命令、面板淡入入场动画、暗/浅色自动适配。
+- **10 条内置命令**：新建/关闭/复制标签页、前进后退、刷新、打开设置/扩展/书签管理器/历史记录。
+- **范围限定前缀**：全称 `/tabs` `/history` `/bookmarks` `/commands`，缩写 `/t` `/h` `/b` `/c` 快速切换搜索范围。
+- **命令缩写**：`/n`（新建）`/w`（关闭）`/r`（刷新）`/ext`（扩展）`/set`（设置）等单字母命令。
+- **中英文搜索**：命令同时支持中文、英文关键词和缩写。
+- **流畅体验**：
+  - 三阶段渐进渲染（命令快照 0ms → Tab 缓存 1ms → SW 实时查询 ~100ms）
+  - 搜索请求自动去重（竞态序号避免新结果被覆盖）
+  - 空查询只显示 Tab + 命令，秒开
+  - 面板淡入入场动画，暗/浅色自动适配
 
 ## 快捷键
 
@@ -30,16 +36,31 @@ GoFun 提供**双层快捷键**，普通网页「零配置」即可上手，内�
 
 ## 搜索范围前缀
 
-在输入框中使用以下前缀可限定搜索范围：
+在输入框中使用以下前缀可限定搜索范围（全称和缩写等价）：
 
-| 前缀 | 说明 |
-|------|------|
-| `/tabs` | 仅搜索当前窗口打开的标签页 |
-| `/history` | 仅搜索浏览历史 |
-| `/bookmarks` | 仅搜索书签 |
-| `/commands` | 仅搜索内置命令 |
+| 全称 | 缩写 | 说明 |
+|------|------|------|
+| `/tabs` | `/t` | 仅搜索当前窗口打开的标签页 |
+| `/history` | `/h` | 仅搜索浏览历史 |
+| `/bookmarks` | `/b` | 仅搜索书签 |
+| `/commands` | `/c` | 仅搜索内置命令 |
 
 > 提示：输入 `/` 但不匹配任何前缀时，会自动落入 `/commands` 命令搜索模式。
+
+## 命令缩写（GoFun 内置命令）
+
+| 命令 | 缩写 | 浏览器原生快捷键 | 英文搜索关键词 |
+|---|---|---|---|
+| 新建标签页 | `/n` | Ctrl T | new, tab, newtab, open |
+| 关闭当前标签页 | `/w` | Ctrl W | close, closetab, remove |
+| 复制当前标签页 | `/dup` | — | duplicate, copy, clone |
+| 重新加载当前页 | `/r` | Ctrl R | reload, refresh, f5 |
+| 后退 | `/back` | Alt ← | back, goback, previous |
+| 前进 | `/fwd` | Alt → | forward, next, goforward |
+| 管理扩展 | `/ext` | — | extensions, ext, addon, plugin |
+| 浏览器设置 | `/set` | — | settings, config, preferences, setup |
+| 书签管理器 | `/bm` | Ctrl Shift O | bookmarks, bookmark, fav, star |
+| 历史记录 | `/his` | Ctrl H | history, recent, visited |
 
 ## 安装方法
 
@@ -51,7 +72,7 @@ GoFun 提供**双层快捷键**，普通网页「零配置」即可上手，内�
 2. 开启右上角「开发者模式」。
 3. 点击「加载已解压的扩展程序」。
 4. 选择本文件夹 `gofun`。
-5. 点击扩展图标（小狗头像），或按 `Ctrl+P` / `Cmd+P`（普通网页） / `Ctrl+Shift+P` / `Cmd+Shift+P`（全页面）呼出面板。
+5. 点击扩展图标（小狗头像），或按 `Ctrl+P` / `Cmd+P`（普通网页）/ `Ctrl+Shift+P` / `Cmd+Shift+P`（全页面）呼出面板。
 
 ### 打包为 .zip / .crx
 
@@ -65,25 +86,34 @@ zip -r gofun.zip gofun
 
 ```
 gofun/
-├── manifest.json      # 扩展清单（MV3）
-├── background.js      # Service Worker：搜索与动作执行
-├── content.js         # 内容脚本：命令面板 UI 与交互
-├── palette.css        # 面板样式（暗 / 浅色模式）
-├── icons/             # 扩展图标（小狗头像，16/32/48/128）
+├── manifest.json      # 扩展清单（MV3，最低 Chrome 105）
+├── background.js      # Service Worker：搜索、命令、Tab 缓存、onInstalled 注入
+├── content.js         # 内容脚本：命令面板 UI、键盘/鼠标交互、渲染
+├── palette.css        # 面板样式（Spotlight 风格，暗/浅色 + 窄屏响应式）
+├── icons/             # 扩展图标（小狗头像 SVG + PNG 四档）
+│   ├── icon.svg
 │   ├── icon16.png
 │   ├── icon32.png
 │   ├── icon48.png
 │   └── icon128.png
-└── README.md
+├── README.md          # 本文件（用户说明）
+└── AGENTS.md          # AI/开发者交接文档（架构、坑、数据结构）
 ```
 
 ## 自定义命令
 
-如需添加更多内置命令，请编辑 `background.js` 中的 `COMMANDS` 数组，每个命令包含 `id`、`title`、`subtitle`、`icon` 和 `action` 函数。
+如需添加更多内置命令，按以下步骤：
+
+1. 在 `background.js` 的 `COMMANDS` 数组添加一项（含 `action` 函数）
+2. 在 `content.js` 的 `COMMAND_SNAPSHOT` 数组添加同样的项（不含 `action`/`keywords`）
+3. 若用了新图标 key，在 `content.js` 的 `ICONS` 对象加 SVG
+4. 命令 id 必须以 `cmd.` 开头
 
 ## 注意事项
 
-- 扩展需要 `tabs`、`history`、`bookmarks`、`scripting` 等权限才能读取对应数据和在受限页面动态注入脚本。
-- 首次安装时若某些页面已打开，点击扩展图标或按快捷键会自动注入内容脚本；如遇异常，可刷新页面后重试。
-- Chrome 内置页面（如 `chrome://extensions`、`edge://`）无法注入内容脚本：在这些页面按快捷键 / 点图标，会自动跳转新标签页并打开面板。
-- 历史记录 / 书签的数据量可能非常大；默认在空查询时不拉取历史和书签以确保秒开。输入关键字后会立即加入搜索。
+- 扩展需要 `tabs`、`history`、`bookmarks`、`scripting`、`storage` 等权限才能读取对应数据、写 Tab 快照缓存、在受限页面动态注入脚本。
+- 扩展安装/更新后会自动向所有已打开的 http(s) 标签页注入内容脚本；若遇个别页面仍无效，刷新该页面即可。
+- Chrome 内置页面（`chrome://`、`edge://` 等）无法注入内容脚本：按快捷键 / 点图标会自动跳转新标签页并打开面板。
+- 搜索历史限定最近 90 天；空查询不搜历史/书签，仅显示 Tab 和命令以确保秒开。
+- favicon 采用双源策略（Google + favicon.im），国内网络环境下加载更稳定。
+- 最低支持 Chrome 105（用到 `:has()` CSS 选择器 + `backdrop-filter`）。

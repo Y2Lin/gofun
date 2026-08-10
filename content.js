@@ -96,10 +96,20 @@
     }
   }
 
+  // favicon 双源策略：Google 为主，favicon.im 为国内网络备用
+  const FAVICON_SOURCES = [
+    'https://www.google.com/s2/favicons?domain=%s&sz=32',
+    'https://favicon.im/%s?larger=true'
+  ];
+
   function faviconHtml(item) {
     const host = safeHostname(item.url);
     if (!host) return null;
-    return `<img class="qp-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'qp-favicon-fallback',textContent:''}))" alt="" />`;
+    const src = FAVICON_SOURCES[0].replace('%s', encodeURIComponent(host));
+    const fallback = FAVICON_SOURCES[1].replace('%s', encodeURIComponent(host));
+    // 第一源加载失败时自动切换第二源；第二源也失败则显示占位色块
+    return `<img class="qp-favicon" src="${src}" data-fallback="${fallback}" ` +
+      `onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=''}else{this.replaceWith(Object.assign(document.createElement('span'),{className:'qp-favicon-fallback',textContent:''}))}" alt="" />`;
   }
 
   function getIconHtml(item) {
@@ -180,7 +190,7 @@
         <span><kbd>esc</kbd> 关闭</span>
       </div>
       <div>
-        <span><kbd>/t</kbd> <kbd>/h</kbd> <kbd>/b</kbd> <kbd>/c</kbd> 切换范围</span>
+        <span><kbd>/t</kbd> <kbd>/h</kbd> <kbd>/b</kbd> <kbd>/c</kbd> 范围 · 支持中英文搜索</span>
       </div>
     `;
 
@@ -386,9 +396,12 @@
     renderResults(results);
 
     // Phase 2（~1ms）：从 storage 读取缓存的标签页（无需 SW，极快）
-    chrome.storage.local.get('cachedTabs', ({ cachedTabs }) => {
-      if (!isVisible) return;
-      if (cachedTabs && cachedTabs.length > 0) {
+    // storage.local.get 回调在损坏/超限时不会抛错（Chrome 静默返回空对象），这里用可选链兜底
+    chrome.storage.local.get('cachedTabs', (data) => {
+      const err = chrome.runtime.lastError;
+      if (!isVisible || err) return;
+      const cachedTabs = data?.cachedTabs;
+      if (cachedTabs && Array.isArray(cachedTabs) && cachedTabs.length > 0) {
         results = [...cachedTabs.slice(0, 12), ...COMMAND_SNAPSHOT.slice(0, 8)];
         selectedIndex = 0;
         renderResults(results);

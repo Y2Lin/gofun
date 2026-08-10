@@ -49,15 +49,14 @@ e:\Dev\gofun\
 │  └──────┬───────┘  message         └──────────┬───────────┘  │
 │         │                                   │ SEARCH/       │
 │         │ Ctrl+P (window capture)           │ EXECUTE/      │
-│         │                           message │ GET_TAB_CACHE  │
+│         │                           message │ PING          │
 │  ┌──────┴───────┐                          ▼               │
 │  │  content.js  │ ◄──────────────────────────┘              │
 │  │ (注入到页面) │  面板 UI / 键盘 / 鼠标 / 渲染               │
 │  │ palette.css  │                                            │
-│  └──────────────┘                                            │
-│         ▲                                                    │
-│         │ chrome.storage.local (Tab 快照缓存)                │
-│         └──────────────────────────────────────────────────  │
+│  └──────┬───────┘                                            │
+│         │ chrome.storage.local 读写（两侧直连，不走消息）     │
+│         ▼                                                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,9 +64,9 @@ e:\Dev\gofun\
 
 | 模块 | 运行环境 | 职责 |
 |---|---|---|
-| **manifest.json** | Chrome 解析 | 声明权限、快捷键绑定、资源入口 |
-| **background.js** | Service Worker | ① 接收 `SEARCH`/`EXECUTE`/`PING`/`GET_TAB_CACHE` 消息 ② 调 chrome.* API 搜索 tabs/history/bookmarks ③ 打分排序 ④ 执行命令 action ⑤ 处理 chrome:// 受限页 fallback 注入 ⑥ 监听 Tab 事件写 `chrome.storage.local` 缓存 ⑦ `onInstalled` 时主动注入所有已打开标签页 |
-| **content.js** | 网页上下文 | ① 创建/销毁面板 DOM ② 在 `window` capture 阶段捕获键盘事件 ③ 60ms debounce 触发搜索 ④ 渲染结果列表、高亮、favicon ⑤ 鼠标 hover/键盘选择 ⑥ 执行选中项时发 `EXECUTE` 消息 ⑦ 打开面板时先读 `chrome.storage.local` 缓存秒显 Tab 列表 |
+| **manifest.json** | Chrome 解析 | 声明权限、快捷键绑定、资源入口、最低 Chrome 版本 105 |
+| **background.js** | Service Worker | ① 接收 `SEARCH`/`EXECUTE`/`PING` 消息 ② 调 chrome.* API 搜索 tabs/history/bookmarks ③ 打分排序 ④ 执行命令 action ⑤ 处理 chrome:// 受限页 fallback 注入 ⑥ 监听 Tab 事件写 `chrome.storage.local` 缓存 ⑦ `onInstalled` 时主动注入所有已打开标签页 |
+| **content.js** | 网页上下文 | ① 创建/销毁面板 DOM ② 在 `window` capture 阶段捕获键盘事件 ③ 60ms debounce 触发搜索 ④ 渲染结果列表、高亮、favicon ⑤ 鼠标 hover/键盘选择 ⑥ 执行选中项时发 `EXECUTE` 消息 ⑦ 打开面板时直接读 `chrome.storage.local` 缓存秒显 Tab 列表（不通过 SW） |
 
 ---
 
@@ -82,7 +81,8 @@ e:\Dev\gofun\
 | `PING` | 无 | `{ pong: true }`（用于预热 SW） |
 | `SEARCH` | `{ query: string }` | `{ results: ResultItem[] }` |
 | `EXECUTE` | `{ item: ResultItem }` | `{ success: boolean, error?: string }` |
-| `GET_TAB_CACHE` | 无 | `{ tabs: ResultItem[] }`（从 storage 读取，SW 无需活跃） |
+
+> 说明：Tab 快照缓存（Phase 2）**不走消息**，content 和 background 各自直接读写 `chrome.storage.local.cachedTabs`。
 
 ### background → content
 
@@ -299,7 +299,8 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 11. **消息回调必须检查 chrome.runtime.lastError**：content script 发消息时 SW 可能已休眠或不存在，不检查会报 "Unchecked runtime.lastError"
 12. **SVG 图标必须 fill:none stroke:currentColor**：ICONS 里的 SVG 用 `stroke="currentColor"` 不硬编码颜色，选中态通过 CSS `color` 属性变色
 13. **storage 权限**：manifest 声明了 `storage` 权限，用于 `chrome.storage.local` 存储 Tab 快照缓存。不是无用权限
-14. **history.search startTime:0** 空查询时传 0 是为了拿最近访问（Chrome 自身按 lastVisit 排）；有查询时限 90 天是性能优化
+14. **history.search 统一限 90 天**：空查询和有查询都传 `startTime: 90天前`，减少 Chrome 内部扫描范围
+15. **favicon 双源策略**：Google favicon 为主源，`favicon.im` 为国内网络备用源。第一源 onerror 自动切换第二源，第二源也失败则显示 `.qp-favicon-fallback` 占位色块
 
 ---
 
