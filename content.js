@@ -80,7 +80,17 @@
     search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     calc: '<svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01M16 19h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     palette: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a9 9 0 0 0 9-9c0-1.5-1-2-2-2h-2.5a2 2 0 0 1-1.5-3.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-    hash: '<svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+    hash: '<svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    split: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4v16" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    crop: '<svg viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    dropper: '<svg viewBox="0 0 24 24"><path d="M2 22l1-4 9.5-9.5 3 3L6 21zM14 6l1.5-1.5a2.12 2.12 0 0 1 3 3L17 9zM12 8l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    ruler: '<svg viewBox="0 0 24 24"><rect x="2" y="9" width="20" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 9v3M10 9v3M14 9v3M18 9v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    play: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/></svg>',
+    forward: '<svg viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M5 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    rewind: '<svg viewBox="0 0 24 24"><path d="M11 5l-7 7 7 7M19 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4M3 9h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    key: '<svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 12l9-9M17 4l3 3M14 7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'arrow-left-circle': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 12H8M11 8l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   };
 
   // 命令快照：与 background COMMANDS 保持字段一致（无 action），用于首次打开面板时立即渲染，不等 SW 响应
@@ -97,12 +107,15 @@
     { id:'cmd.closedupes',   type:'command', title:'关闭重复标签页',   subtitle:'找出并关闭 URL 重复的标签页', icon:'dedup',       alias:['/dedup'] },
     { id:'cmd.closeothers',  type:'command', title:'关闭其他标签页',   subtitle:'保留当前页，关闭其余标签页', icon:'x-circle',    alias:['/co'] },
     { id:'cmd.closeright',   type:'command', title:'关闭右侧标签页',   subtitle:'关闭当前页右侧的所有标签页', icon:'arrow-right-circle', alias:['/cr'] },
+    { id:'cmd.closeleft',    type:'command', title:'关闭左侧标签页',   subtitle:'关闭当前页左侧的所有标签页', icon:'arrow-left-circle', alias:['/cll'] },
+    { id:'cmd.bookmarkadd',  type:'command', title:'收藏当前页',       subtitle:'把当前标签页加入书签',       icon:'bookmark',    alias:['/fav'], browserKbd:'Ctrl D' },
     { id:'cmd.sorttabs',     type:'command', title:'按标题排序标签页', subtitle:'整理当前窗口，固定标签页不动', icon:'sort',       alias:['/sort'] },
     { id:'cmd.groupdomain',  type:'command', title:'按域名分组标签页', subtitle:'把同域名的标签页归入标签组', icon:'group',       alias:['/group'] },
     { id:'cmd.ungroupall',   type:'command', title:'取消所有标签分组', subtitle:'解散当前窗口的全部标签组',   icon:'ungroup',     alias:['/ungroup'] },
     { id:'cmd.mergewindows', type:'command', title:'合并所有窗口',     subtitle:'把所有窗口合并到当前窗口',   icon:'merge',       alias:['/merge'] },
     { id:'cmd.suspendothers', type:'command', title:'挂起其他标签页',  subtitle:'休眠未使用的标签页释放内存', icon:'moon',        alias:['/sus'] },
     { id:'cmd.movetowindow', type:'command', title:'移动到新窗口',     subtitle:'把当前标签页移到新窗口',     icon:'window',      alias:['/mv'] },
+    { id:'cmd.splitview',    type:'command', title:'分屏视图',         subtitle:'当前页居左、下一页居右并排', icon:'split',       alias:['/split'] },
     { id:'cmd.restoreclosed', type:'command', title:'恢复最近关闭的标签页', subtitle:'重新打开刚刚关闭的标签页', icon:'restore',   alias:['/undo'], browserKbd:'Ctrl Shift T' },
     { id:'cmd.newwindow',    type:'command', title:'新建窗口',         subtitle:'打开一个新的浏览器窗口',     icon:'window',      alias:['/win'], browserKbd:'Ctrl N' },
     { id:'cmd.incognito',    type:'command', title:'新建无痕窗口',     subtitle:'打开一个新的无痕窗口',       icon:'incognito',   alias:['/inc'], browserKbd:'Ctrl Shift N' },
@@ -111,6 +124,9 @@
     { id:'cmd.zoomreset',    type:'command', title:'重置缩放',         subtitle:'恢复 100% 缩放',             icon:'zoom-reset',  alias:['/zr'] },
     { id:'cmd.viewsource',   type:'command', title:'查看网页源代码',   subtitle:'在新标签页打开源代码',       icon:'code',        alias:['/src'] },
     { id:'cmd.screenshot',   type:'command', title:'截图当前页面',     subtitle:'截取可见区域保存为 PNG',     icon:'camera',      alias:['/ss'] },
+    { id:'cmd.screenshotarea', type:'command', title:'区域截图',       subtitle:'拖动框选区域保存为 PNG',     icon:'crop',        alias:['/ssa'], client:true },
+    { id:'cmd.colorpicker',  type:'command', title:'屏幕取色器',       subtitle:'取页面任意颜色，复制 HEX',   icon:'dropper',     alias:['/pick'], client:true },
+    { id:'cmd.ruler',        type:'command', title:'像素尺子',         subtitle:'拖拽测量页面尺寸与间距',     icon:'ruler',       alias:['/ruler'], client:true },
     { id:'cmd.copyurl',      type:'command', title:'复制当前页网址',   subtitle:'复制当前标签页 URL',         icon:'link',        alias:['/cu'],  client:true },
     { id:'cmd.copytitle',    type:'command', title:'复制当前页标题',   subtitle:'复制当前标签页标题',         icon:'copy',        alias:['/ct'],  client:true },
     { id:'cmd.copymd',       type:'command', title:'复制 Markdown 链接', subtitle:'复制 [标题](网址) 格式',   icon:'markdown',    alias:['/md'],  client:true },
@@ -119,11 +135,17 @@
     { id:'cmd.scrollbottom', type:'command', title:'滚动到底部',       subtitle:'跳到页面最下方',             icon:'arrow-down',  alias:['/btm'], client:true },
     { id:'cmd.print',        type:'command', title:'打印页面',         subtitle:'调用浏览器打印当前页',       icon:'printer',     alias:['/print'], browserKbd:'Ctrl P', client:true },
     { id:'cmd.fullscreen',   type:'command', title:'切换全屏',         subtitle:'进入 / 退出页面全屏',        icon:'fullscreen',  alias:['/fs'],  client:true },
+    { id:'cmd.copyselection', type:'command', title:'复制选中文本',    subtitle:'复制页面上选中的文本',       icon:'copy',        alias:['/cs'],  client:true },
+    { id:'cmd.mediaplaypause', type:'command', title:'播放 / 暂停',    subtitle:'切换页面视频/音频播放状态',  icon:'play',        alias:['/pp'],  client:true },
+    { id:'cmd.mediamute',    type:'command', title:'视频静音 / 取消静音', subtitle:'切换页面媒体静音状态',    icon:'mute',        alias:['/mm'],  client:true },
+    { id:'cmd.mediaforward', type:'command', title:'快进 10 秒',       subtitle:'页面视频快进 10 秒',         icon:'forward',     alias:['/mf'],  client:true },
+    { id:'cmd.mediaback',    type:'command', title:'快退 10 秒',       subtitle:'页面视频快退 10 秒',         icon:'rewind',      alias:['/mb'],  client:true },
     { id:'cmd.emoji',        type:'command', title:'Emoji 搜索',       subtitle:'模糊搜索 Emoji，回车复制',   icon:'smile',       alias:['/e'],   setScope:'/emoji ' },
     { id:'cmd.todo',         type:'command', title:'待办事项',         subtitle:'快速管理你的待办清单',       icon:'check',       alias:['/todo'], setScope:'/todo ' },
     { id:'cmd.weather',      type:'command', title:'天气查询',         subtitle:'查看城市当前天气与三天预报', icon:'cloud',       alias:['/wx'],  setScope:'/wx ' },
     { id:'cmd.ai',           type:'command', title:'AI 助手',          subtitle:'与 AI 对话，@page 携带当前页内容', icon:'sparkles', alias:['/ai'], setScope:'/ai ' },
     { id:'cmd.rss',          type:'command', title:'RSS 阅读器',       subtitle:'阅读订阅源或输入 feed 地址', icon:'rss',         alias:['/rss'], setScope:'/rss ' },
+    { id:'cmd.calendar',     type:'command', title:'日历日程',         subtitle:'查看即将开始的日程与会议',   icon:'calendar',    alias:['/cal'], setScope:'/cal ' },
     { id:'cmd.extensions',   type:'command', title:'管理扩展',         subtitle:'打开扩展管理页面',           icon:'grid',        alias:['/ext'] },
     { id:'cmd.settings',     type:'command', title:'浏览器设置',       subtitle:'打开设置页面',               icon:'settings',    alias:['/set'] },
     { id:'cmd.bookmarks',    type:'command', title:'书签管理器',       subtitle:'打开书签管理器',             icon:'bookmark',    alias:['/bm'],  browserKbd:'Ctrl Shift O' },
@@ -144,11 +166,36 @@
     { scope: 'todo',      full: '/todo',      short: null,  label: '待办'     },
     { scope: 'weather',   full: '/weather',   short: '/wx', label: '天气'     },
     { scope: 'rss',       full: '/rss',       short: null,  label: 'RSS'     },
+    { scope: 'calendar',  full: '/cal',       short: null,  label: '日历'    },
     { scope: 'ai',        full: '/ai',        short: null,  label: 'AI'      }
   ];
 
+  // TabCmdr 风格冒号前缀别名（:b foo 等价于 /b foo），与 background 的 COLON_ALIASES 同步
+  const COLON_ALIASES = {
+    ':t': '/tabs', ':tabs': '/tabs',
+    ':h': '/history', ':history': '/history',
+    ':b': '/bookmarks', ':bookmarks': '/bookmarks',
+    ':c': '/commands', ':commands': '/commands',
+    ':cl': '/closed', ':closed': '/closed',
+    ':d': '/downloads', ':downloads': '/downloads',
+    ':e': '/emoji', ':em': '/emoji', ':emoji': '/emoji',
+    ':todo': '/todo',
+    ':wx': '/weather', ':weather': '/weather',
+    ':rss': '/rss',
+    ':cal': '/cal', ':calendar': '/cal',
+    ':ai': '/ai'
+  };
+  function normalizeColonPrefix(trimmed) {
+    if (!trimmed.startsWith(':')) return trimmed;
+    const m = /^:(\w+)(?:\s+(.*))?$/.exec(trimmed);
+    if (!m) return trimmed;
+    const target = COLON_ALIASES[':' + m[1].toLowerCase()];
+    if (!target) return trimmed;
+    return m[2] != null ? `${target} ${m[2]}` : target;
+  }
+
   function parseScope(rawQuery) {
-    const trimmed = rawQuery.trim();
+    const trimmed = normalizeColonPrefix(rawQuery.trim());
     for (const { scope, full, short } of SCOPE_PREFIXES) {
       if (trimmed.startsWith(full + ' ') || trimmed === full) return scope;
       if (short && (trimmed.startsWith(short + ' ') || trimmed === short)) return scope;
@@ -158,7 +205,7 @@
 
   // 从 scope 前缀（全称或缩写）中剥离掉前缀，取真正用于高亮的关键字
   function stripScopePrefix(rawQuery) {
-    const trimmed = rawQuery.trim();
+    const trimmed = normalizeColonPrefix(rawQuery.trim());
     for (const { full, short } of SCOPE_PREFIXES) {
       if (trimmed.startsWith(full + ' '))  return trimmed.slice(full.length + 1).trim();
       if (trimmed === full)                return '';
@@ -173,7 +220,7 @@
   }
 
   function getScopeLabel(rawQuery) {
-    const trimmed = rawQuery.trim();
+    const trimmed = normalizeColonPrefix(rawQuery.trim());
     for (const { full, short, label } of SCOPE_PREFIXES) {
       if (trimmed === full || trimmed.startsWith(full + ' ') ||
           (short && (trimmed === short || trimmed.startsWith(short + ' ')))) {
@@ -208,7 +255,7 @@
       return `<span class="qp-color-swatch" style="background:${escapeHtml(item.color)}"></span>`;
     }
     // 命令/答案/待办等：用内置 SVG 图标
-    const svgTypes = ['command', 'answer', 'todo', 'todo-add', 'todo-clear', 'websearch', 'openurl', 'download', 'closed'];
+    const svgTypes = ['command', 'answer', 'todo', 'todo-add', 'todo-clear', 'websearch', 'openurl', 'download', 'closed', 'calendar'];
     if (svgTypes.includes(item.type)) {
       return (item.icon && ICONS[item.icon]) ? ICONS[item.icon] : ICONS.command;
     }
@@ -221,7 +268,7 @@
     return ICONS.tab;
   }
 
-  const GROUP_ORDER = ['answer', 'tab', 'command', 'closed', 'download', 'history', 'bookmark', 'emoji', 'todo', 'todo-add', 'todo-clear', 'rss-feed', 'rss', 'openurl', 'websearch'];
+  const GROUP_ORDER = ['answer', 'tab', 'command', 'closed', 'download', 'history', 'bookmark', 'emoji', 'todo', 'todo-add', 'todo-clear', 'calendar', 'rss-feed', 'rss', 'openurl', 'websearch'];
 
   function getGroupLabel(type) {
     switch (type) {
@@ -234,6 +281,7 @@
       case 'download': return '下载';
       case 'emoji': return 'Emoji';
       case 'todo': case 'todo-add': case 'todo-clear': return '待办';
+      case 'calendar': return '日程';
       case 'rss-feed': return 'RSS 订阅源';
       case 'rss': return 'RSS 文章';
       case 'openurl': return '打开网址';
@@ -316,14 +364,15 @@
   }
 
   // ========= 设置应用 =========
-  const THEME_LIST = ['light', 'dark', 'dracula', 'nord', 'catppuccin', 'tokyo-night', 'gruvbox', 'solarized', 'rose-pine'];
+  const THEME_LIST = ['light', 'dark', 'dracula', 'nord', 'catppuccin', 'tokyo-night', 'gruvbox', 'solarized', 'rose-pine', 'one-dark', 'monokai', 'ayu', 'palenight', 'everforest'];
+  const POSITION_LIST = ['center', 'top', 'bottom', 'notch', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
   function applySettings(s) {
     if (!overlay) return;
     for (const t of THEME_LIST) overlay.classList.remove('qp-theme-' + t);
     if (s.theme && s.theme !== 'system') overlay.classList.add('qp-theme-' + s.theme);
     overlay.classList.toggle('qp-compact', !!s.compact);
-    overlay.classList.remove('qp-pos-center', 'qp-pos-top', 'qp-pos-bottom');
-    overlay.classList.add('qp-pos-' + (s.position || 'center'));
+    for (const p of POSITION_LIST) overlay.classList.remove('qp-pos-' + p);
+    overlay.classList.add('qp-pos-' + (POSITION_LIST.includes(s.position) ? s.position : 'center'));
   }
 
   function loadSettings() {
@@ -485,7 +534,8 @@
         if (aiMode) {
           sendAiMessage(stripScopePrefix(lastQuery));
         } else {
-          executeSelected();
+          // Alt+Enter：对标签页结果执行"关闭"（对标 TabCmdr 对任意搜索结果直接操作）
+          executeSelected(e.altKey ? 'close' : null);
         }
         break;
       case 'Escape':
@@ -524,9 +574,9 @@
     }
   }
 
-  function executeSelected() {
+  function executeSelected(tabAction) {
     const item = results[selectedIndex];
-    if (item) executeItem(item);
+    if (item) executeItem(item, tabAction);
   }
 
   function openPalette() {
@@ -640,7 +690,9 @@
         el.dataset.index = String(globalIndex);
 
         const iconHtml = getIconHtml(item);
-        const badge = type === 'tab' && item.active ? '<span class="qp-badge">当前</span>' : '';
+        let badge = '';
+        if (type === 'tab' && item.active && !item.otherWindow) badge = '<span class="qp-badge">当前</span>';
+        else if (type === 'tab' && item.otherWindow) badge = '<span class="qp-badge qp-badge-window">其他窗口</span>';
         const shortcuts = type === 'command' ? shortcutsHtml(item.alias, item.browserKbd) : '';
 
         el.innerHTML = `
@@ -669,7 +721,7 @@
   }
 
   // ========= 执行 =========
-  function executeItem(item) {
+  function executeItem(item, tabAction) {
     // 切换输入框内容（工具入口 / RSS 订阅源）
     if (item.setScope || item.setInput) {
       input.value = item.setScope || item.setInput;
@@ -721,6 +773,18 @@
       return;
     }
 
+    // 标签页修饰操作（Alt+Enter 关闭）：保持面板打开并刷新列表
+    if (item.type === 'tab' && tabAction) {
+      chrome.runtime.sendMessage({ type: 'EXECUTE', item, tabAction }, (resp) => {
+        if (chrome.runtime.lastError) {
+          console.error('Execute error:', chrome.runtime.lastError.message);
+          return;
+        }
+        if (resp && resp.refresh) refreshResults();
+      });
+      return;
+    }
+
     // 其余交给 background
     chrome.runtime.sendMessage({ type: 'EXECUTE', item }, () => {
       if (chrome.runtime.lastError) {
@@ -755,6 +819,16 @@
         copyText(`[${document.title}](${location.href})`);
         showToast('已复制 Markdown 链接');
         break;
+      case 'cmd.copyselection': {
+        const sel = String(window.getSelection() || '').trim();
+        if (sel) {
+          copyText(sel);
+          showToast('已复制选中文本');
+        } else {
+          showToast('页面上没有选中文本');
+        }
+        break;
+      }
       case 'cmd.qr':
         showQrOverlay(location.href);
         break;
@@ -771,7 +845,199 @@
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         else document.documentElement.requestFullscreen().catch(() => {});
         break;
+      case 'cmd.screenshotarea':
+        startAreaScreenshot();
+        break;
+      case 'cmd.colorpicker':
+        startColorPicker();
+        break;
+      case 'cmd.ruler':
+        startRuler();
+        break;
+      // ---- 站点媒体控制（YouTube 等 HTML5 播放器）----
+      case 'cmd.mediaplaypause': {
+        const m = findPageMedia();
+        if (!m) { showToast('页面上没有找到视频/音频'); break; }
+        if (m.paused) m.play().catch(() => {}); else m.pause();
+        showToast(m.paused ? '已暂停' : '播放中');
+        break;
+      }
+      case 'cmd.mediamute': {
+        const m = findPageMedia();
+        if (!m) { showToast('页面上没有找到视频/音频'); break; }
+        m.muted = !m.muted;
+        showToast(m.muted ? '已静音' : '已取消静音');
+        break;
+      }
+      case 'cmd.mediaforward': {
+        const m = findPageMedia();
+        if (!m) { showToast('页面上没有找到视频/音频'); break; }
+        m.currentTime = Math.min((m.duration || Infinity), m.currentTime + 10);
+        showToast('快进 10 秒');
+        break;
+      }
+      case 'cmd.mediaback': {
+        const m = findPageMedia();
+        if (!m) { showToast('页面上没有找到视频/音频'); break; }
+        m.currentTime = Math.max(0, m.currentTime - 10);
+        showToast('快退 10 秒');
+        break;
+      }
     }
+  }
+
+  // 找页面中"最可能在用"的媒体元素：正在播放的优先，其次第一个可见的
+  function findPageMedia() {
+    const list = Array.from(document.querySelectorAll('video, audio'));
+    if (!list.length) return null;
+    const playing = list.find(m => !m.paused && !m.ended);
+    if (playing) return playing;
+    return list.find(m => m.offsetParent !== null || m.getClientRects().length) || list[0];
+  }
+
+  // ---- 区域截图：拖框选 → 坐标发给 background 截屏裁剪 ----
+  function startAreaScreenshot() {
+    if (document.getElementById('gofun-snip-overlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'gofun-snip-overlay';
+    ov.innerHTML = `
+      <div id="gofun-snip-tip">拖动框选截图区域 · <b>Esc</b> 取消</div>
+      <div id="gofun-snip-box" style="display:none"><span id="gofun-snip-size"></span></div>
+    `;
+    document.body.appendChild(ov);
+    const box = ov.querySelector('#gofun-snip-box');
+    const sizeEl = ov.querySelector('#gofun-snip-size');
+    let sx = 0, sy = 0, dragging = false;
+
+    const cleanup = () => {
+      ov.remove();
+      window.removeEventListener('keydown', onKey, true);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+
+    ov.addEventListener('mousedown', (e) => {
+      dragging = true;
+      sx = e.clientX; sy = e.clientY;
+      box.style.display = 'block';
+      e.preventDefault();
+    });
+    ov.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const x = Math.min(sx, e.clientX), y = Math.min(sy, e.clientY);
+      const w = Math.abs(e.clientX - sx), h = Math.abs(e.clientY - sy);
+      box.style.left = x + 'px'; box.style.top = y + 'px';
+      box.style.width = w + 'px'; box.style.height = h + 'px';
+      sizeEl.textContent = `${w} × ${h}`;
+    });
+    ov.addEventListener('mouseup', (e) => {
+      if (!dragging) return;
+      dragging = false;
+      const rect = {
+        x: Math.min(sx, e.clientX), y: Math.min(sy, e.clientY),
+        width: Math.abs(e.clientX - sx), height: Math.abs(e.clientY - sy),
+        dpr: window.devicePixelRatio || 1
+      };
+      cleanup();
+      if (rect.width < 8 || rect.height < 8) { showToast('选区太小，已取消'); return; }
+      chrome.runtime.sendMessage({ type: 'SCREENSHOT_AREA', rect }, (resp) => {
+        if (chrome.runtime.lastError || !resp || !resp.success) {
+          showToast('截图失败：' + ((resp && resp.error) || (chrome.runtime.lastError && chrome.runtime.lastError.message) || '未知错误'));
+        } else {
+          showToast(`区域截图已保存（${rect.width} × ${rect.height}）`);
+        }
+      });
+    });
+  }
+
+  // ---- 屏幕取色器：EyeDropper API（Chrome 95+），复制 HEX 并展示色值 ----
+  function startColorPicker() {
+    if (!window.EyeDropper) {
+      showToast('当前浏览器不支持取色器（需 Chrome 95+）');
+      return;
+    }
+    new EyeDropper().open().then(({ sRGBHex }) => {
+      const hex = sRGBHex.toUpperCase();
+      const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+      copyText(hex);
+      showColorToast(hex, r, g, b);
+    }).catch(() => { /* 用户按 Esc 取消 */ });
+  }
+  function showColorToast(hex, r, g, b) {
+    const old = document.getElementById('gofun-color-toast');
+    if (old) old.remove();
+    const el = document.createElement('div');
+    el.id = 'gofun-color-toast';
+    el.innerHTML = `
+      <span id="gofun-color-swatch" style="background:${hex}"></span>
+      <span id="gofun-color-vals">${hex}<br>rgb(${r}, ${g}, ${b})</span>
+      <span id="gofun-color-tip">HEX 已复制 · 点击关闭</span>
+    `;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('qp-visible'));
+    const dismiss = () => { el.classList.remove('qp-visible'); setTimeout(() => el.remove(), 200); };
+    el.addEventListener('click', dismiss);
+    setTimeout(dismiss, 4000);
+  }
+
+  // ---- 像素尺子：拖拽测量页面任意区域尺寸（对标 TabCmdr Ruler）----
+  function startRuler() {
+    if (document.getElementById('gofun-ruler-overlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'gofun-ruler-overlay';
+    ov.innerHTML = `
+      <div id="gofun-ruler-h"></div>
+      <div id="gofun-ruler-v"></div>
+      <div id="gofun-ruler-tip">拖动测量尺寸 · <b>Esc</b> / 点击退出</div>
+      <div id="gofun-ruler-box" style="display:none"><span id="gofun-ruler-size"></span></div>
+      <div id="gofun-ruler-pos"></div>
+    `;
+    document.body.appendChild(ov);
+    const hLine = ov.querySelector('#gofun-ruler-h');
+    const vLine = ov.querySelector('#gofun-ruler-v');
+    const box = ov.querySelector('#gofun-ruler-box');
+    const sizeEl = ov.querySelector('#gofun-ruler-size');
+    const posEl = ov.querySelector('#gofun-ruler-pos');
+    let sx = 0, sy = 0, dragging = false;
+
+    const cleanup = () => {
+      ov.remove();
+      window.removeEventListener('keydown', onKey, true);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+
+    ov.addEventListener('mousemove', (e) => {
+      hLine.style.top = e.clientY + 'px';
+      vLine.style.left = e.clientX + 'px';
+      posEl.textContent = `${e.clientX}, ${e.clientY}`;
+      posEl.style.left = Math.min(e.clientX + 14, window.innerWidth - 90) + 'px';
+      posEl.style.top = Math.min(e.clientY + 14, window.innerHeight - 30) + 'px';
+      if (!dragging) return;
+      const x = Math.min(sx, e.clientX), y = Math.min(sy, e.clientY);
+      const w = Math.abs(e.clientX - sx), h = Math.abs(e.clientY - sy);
+      box.style.left = x + 'px'; box.style.top = y + 'px';
+      box.style.width = w + 'px'; box.style.height = h + 'px';
+      sizeEl.textContent = `${w} × ${h}`;
+    });
+    ov.addEventListener('mousedown', (e) => {
+      dragging = true;
+      sx = e.clientX; sy = e.clientY;
+      box.style.display = 'block';
+      box.style.left = sx + 'px'; box.style.top = sy + 'px';
+      box.style.width = '0'; box.style.height = '0';
+      e.preventDefault();
+    });
+    ov.addEventListener('mouseup', () => { dragging = false; });
+    ov.addEventListener('click', () => {
+      // 单击（未拖拽出有效框）退出尺子
+      if (parseInt(box.style.width || '0', 10) < 4) cleanup();
+      else { box.style.display = 'none'; }
+    });
   }
 
   function copyText(text) {
@@ -858,14 +1124,29 @@
     selectedIndex = -1;
 
     if (!aiMessages.length) {
+      const presets = [
+        { label: '总结本页', prompt: '总结一下 @page' },
+        { label: '提取要点', prompt: '提取关键要点 @page' },
+        { label: '翻译本页', prompt: '把主要内容翻译成中文 @page' },
+        { label: '解释代码', prompt: '解释其中的代码 @page' }
+      ];
       resultsEl.innerHTML = `
         <div id="quick-palette-ai-empty">
           <div class="qp-ai-title">${ICONS.sparkles} AI 助手</div>
           <div class="qp-ai-tip">输入问题后回车发送。支持 <b>@page</b> 携带当前页面内容（如"总结一下 @page"）。</div>
+          <div class="qp-ai-presets">${presets.map((p, i) =>
+            `<span class="qp-ai-preset" data-idx="${i}">${escapeHtml(p.label)}</span>`).join('')}</div>
           <div class="qp-ai-tip">在 <b>/opt</b> 设置页配置 API Key（支持 OpenAI / Claude / Gemini / DeepSeek 等）。</div>
           <div class="qp-ai-actions"><span class="qp-ai-clear" id="qp-ai-clear">清空对话</span></div>
         </div>`;
       bindAiClear();
+      // 预设提问：点击直接发送
+      resultsEl.querySelectorAll('.qp-ai-preset').forEach((el) => {
+        el.addEventListener('click', () => {
+          const p = presets[Number(el.dataset.idx)];
+          if (p) sendAiMessage(p.prompt);
+        });
+      });
       return;
     }
 
@@ -982,6 +1263,7 @@
     const isCtrl = e.ctrlKey || e.metaKey;
     const isShift = e.shiftKey;
     const isP = e.key && e.key.toLowerCase() === 'p';
+    const isK = e.key && e.key.toLowerCase() === 'k';
 
     // Ctrl+Shift+P 由 Chrome command 处理，这里跳过（避免 open→close 竞态）
     if (isCtrl && isP && isShift) {
@@ -994,8 +1276,8 @@
     // 面板内导航（上下键、Tab、Enter、Esc 等）
     handleGlobalNav(e);
 
-    // Ctrl+P（无 Shift）：页面层拦截
-    if (isCtrl && isP) {
+    // Ctrl+P / Ctrl+K（无 Shift）：页面层拦截（Ctrl+K 对标 TabCmdr 默认快捷键）
+    if (isCtrl && (isP || isK)) {
       const tag = (e.target && e.target.tagName) || '';
       const inOwnInput = e.target === input;
       const inEditable = !inOwnInput && (

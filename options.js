@@ -16,7 +16,9 @@ const DEFAULTS = {
   aiProvider: 'openai',
   aiApiKey: '',
   aiModel: '',
-  aiBaseUrl: ''
+  aiBaseUrl: '',
+  searchEngines: [],
+  calendarFeeds: []
 };
 
 /* 主题列表：value / 显示名 / 代表背景色 / 代表强调色 */
@@ -30,7 +32,12 @@ const THEMES = [
   { value: 'tokyo-night', name: 'Tokyo Night',bg: '#1a1b26', accent: '#7aa2f7' },
   { value: 'gruvbox',     name: 'Gruvbox',    bg: '#282828', accent: '#fabd2f' },
   { value: 'solarized',   name: 'Solarized',  bg: '#fdf6e3', accent: '#268bd2' },
-  { value: 'rose-pine',   name: 'Rosé Pine',  bg: '#191724', accent: '#ebbcba' }
+  { value: 'rose-pine',   name: 'Rosé Pine',  bg: '#191724', accent: '#ebbcba' },
+  { value: 'one-dark',    name: 'One Dark',   bg: '#282c34', accent: '#61afef' },
+  { value: 'monokai',     name: 'Monokai',    bg: '#272822', accent: '#a6e22e' },
+  { value: 'ayu',         name: 'Ayu Dark',   bg: '#0b0e14', accent: '#39bae6' },
+  { value: 'palenight',   name: 'Palenight',  bg: '#292d3e', accent: '#82aaff' },
+  { value: 'everforest',  name: 'Everforest', bg: '#2d353b', accent: '#a7c080' }
 ];
 
 let selectedTheme = DEFAULTS.theme;
@@ -47,8 +54,10 @@ function cacheElements() {
   els.compact = $('compact');
   els.position = $('position');
   els.historyDays = $('history-days');
+  els.searchEngines = $('search-engines');
   els.weatherCity = $('weather-city');
   els.rssFeeds = $('rss-feeds');
+  els.calendarFeeds = $('calendar-feeds');
   els.aiProvider = $('ai-provider');
   els.aiApiKey = $('ai-api-key');
   els.aiModel = $('ai-model');
@@ -111,9 +120,15 @@ function fillForm(settings) {
   els.compact.checked = Boolean(settings.compact);
   els.position.value = settings.position;
   els.historyDays.value = String(settings.historyDays);
+  els.searchEngines.value = Array.isArray(settings.searchEngines)
+    ? settings.searchEngines.map((e) => `${e.key} ${e.url}`).join('\n')
+    : '';
   els.weatherCity.value = settings.weatherCity;
   els.rssFeeds.value = Array.isArray(settings.rssFeeds)
     ? settings.rssFeeds.join('\n')
+    : '';
+  els.calendarFeeds.value = Array.isArray(settings.calendarFeeds)
+    ? settings.calendarFeeds.join('\n')
     : '';
   els.aiProvider.value = settings.aiProvider;
   els.aiApiKey.value = settings.aiApiKey;
@@ -129,6 +144,26 @@ function collectForm() {
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
+  const calendarFeeds = els.calendarFeeds.value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  // 每行：触发词 + 空格 + URL（%s 占位）
+  const searchEngines = els.searchEngines.value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const sp = line.indexOf(' ');
+      if (sp <= 0) return null;
+      const key = line.slice(0, sp).trim();
+      const url = line.slice(sp + 1).trim();
+      if (!key || !url.includes('%s')) return null;
+      return { key, url };
+    })
+    .filter(Boolean);
+
   return {
     theme: selectedTheme,
     compact: els.compact.checked,
@@ -136,6 +171,8 @@ function collectForm() {
     historyDays: parseInt(els.historyDays.value, 10),
     weatherCity: els.weatherCity.value.trim(),
     rssFeeds: rssFeeds,
+    calendarFeeds: calendarFeeds,
+    searchEngines: searchEngines,
     aiProvider: els.aiProvider.value,
     aiApiKey: els.aiApiKey.value.trim(),
     aiModel: els.aiModel.value.trim(),

@@ -335,6 +335,11 @@
         <option value="center">居中</option>
         <option value="top">靠上</option>
         <option value="bottom">靠下</option>
+        <option value="notch">刘海模式（贴屏幕顶边）</option>
+        <option value="top-left">左上角</option>
+        <option value="top-right">右上角</option>
+        <option value="bottom-left">左下角</option>
+        <option value="bottom-right">右下角</option>
       </select>
     </div>
   </section>
@@ -342,16 +347,24 @@
   <!-- 搜索 -->
   <section class="section">
     <h2>搜索</h2>
-    <p class="section-desc">调整搜索的数据范围</p>
+    <p class="section-desc">调整搜索的数据范围与自定义搜索引擎</p>
 
     <div class="field">
       <label for="history-days">历史记录范围</label>
       <select id="history-days">
+        <option value="1">最近 24 小时</option>
         <option value="7">最近 7 天</option>
         <option value="30">最近 30 天</option>
         <option value="90">最近 90 天</option>
+        <option value="365">最近一年</option>
         <option value="0">全部</option>
       </select>
+    </div>
+
+    <div class="field">
+      <label for="search-engines">自定义搜索引擎</label>
+      <textarea id="search-engines" placeholder="g https://www.google.com/search?q=%s&#10;gh https://github.com/search?q=%s&#10;每行一个：缩写 + 空格 + URL（%s 为关键字占位）"></textarea>
+      <p class="hint">每行一个：触发词 + 空格 + 搜索 URL（用 %s 代表关键字）。例如在面板输入 "gh react" 直接用 GitHub 搜索</p>
     </div>
   </section>
 
@@ -370,6 +383,12 @@
       <textarea id="rss-feeds" placeholder="https://example.com/feed.xml&#10;每行一个订阅地址"></textarea>
       <p class="hint">每行填写一个 RSS 地址，空行会被忽略</p>
     </div>
+
+    <div class="field">
+      <label for="calendar-feeds">日历订阅（ICS）</label>
+      <textarea id="calendar-feeds" placeholder="https://calendar.google.com/calendar/ical/xxx/basic.ics&#10;每行一个 ICS 订阅地址"></textarea>
+      <p class="hint">每行一个 ICS 订阅地址，面板输入 /cal 查看即将开始的日程</p>
+    </div>
   </section>
 
   <!-- AI 助手 -->
@@ -385,6 +404,7 @@
         <option value="deepseek">DeepSeek</option>
         <option value="grok">Grok (xAI)</option>
         <option value="mistral">Mistral</option>
+        <option value="perplexity">Perplexity</option>
         <option value="anthropic">Anthropic Claude</option>
         <option value="gemini">Google Gemini</option>
         <option value="custom">自定义</option>

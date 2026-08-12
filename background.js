@@ -18,7 +18,9 @@ const DEFAULT_SETTINGS = {
   aiProvider: 'openai',
   aiApiKey: '',
   aiModel: '',
-  aiBaseUrl: ''
+  aiBaseUrl: '',
+  searchEngines: [],   // [{ key: 'g', url: 'https://www.google.com/search?q=%s' }]
+  calendarFeeds: []    // ICS 订阅地址
 };
 async function getSettings() {
   try {
@@ -138,6 +140,27 @@ const COMMANDS = [
     }
   },
   {
+    id: 'cmd.closeleft', type: 'command', title: '关闭左侧标签页', subtitle: '关闭当前页左侧的所有标签页',
+    icon: 'arrow-left-circle', alias: ['/cll'], keywords: ['close', 'left', 'tabs'],
+    action: async () => {
+      const [cur] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!cur) return;
+      const tabs = await chrome.tabs.query({ currentWindow: true });
+      const ids = tabs.filter(t => t.index < cur.index && !t.pinned).map(t => t.id);
+      if (ids.length) await chrome.tabs.remove(ids);
+    }
+  },
+  {
+    id: 'cmd.bookmarkadd', type: 'command', title: '收藏当前页', subtitle: '把当前标签页加入书签',
+    icon: 'bookmark', alias: ['/fav'], browserKbd: 'Ctrl D', keywords: ['bookmark', 'favorite', 'star', 'save'],
+    action: async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && /^https?:\/\//.test(tab.url || '')) {
+        await chrome.bookmarks.create({ title: tab.title || tab.url, url: tab.url });
+      }
+    }
+  },
+  {
     id: 'cmd.sorttabs', type: 'command', title: '按标题排序标签页', subtitle: '整理当前窗口，固定标签页保持不动',
     icon: 'sort', alias: ['/sort'], keywords: ['sort', 'order', 'arrange', 'alphabetical'],
     action: async () => {
@@ -212,6 +235,41 @@ const COMMANDS = [
     }
   },
   {
+    id: 'cmd.splitview', type: 'command', title: '分屏视图', subtitle: '当前页居左、下一标签页居右并排显示',
+    icon: 'split', alias: ['/split'], keywords: ['split', 'view', 'side', 'tile', 'arrange'],
+    action: async () => {
+      const tabs = await chrome.tabs.query({ currentWindow: true });
+      const cur = tabs.find(t => t.active);
+      if (!cur) return;
+      // 找相邻标签页（优先右侧，其次左侧），没有则用当前页复制一个
+      let other = tabs.find(t => t.index === cur.index + 1) || tabs.find(t => t.index === cur.index - 1);
+      if (!other) {
+        other = await chrome.tabs.duplicate(cur.id);
+      }
+      const curWin = await chrome.windows.get(cur.windowId);
+      let screenW = (curWin.left || 0) + (curWin.width || 1280);
+      let screenH = (curWin.top || 0) + (curWin.height || 800);
+      let originL = 0, originT = 0;
+      try {
+        const displays = await chrome.system.display.getInfo();
+        const d = displays.find(x => x.isPrimary) || displays[0];
+        if (d) {
+          screenW = d.workArea.width; screenH = d.workArea.height;
+          originL = d.workArea.left; originT = d.workArea.top;
+        }
+      } catch (_) { /* 无 system.display 权限时用窗口估算 */ }
+      const halfW = Math.floor(screenW / 2);
+      // 当前窗口缩到左半屏，另一标签页移到新窗口放右半屏
+      await chrome.windows.update(cur.windowId, {
+        state: 'normal', left: originL, top: originT, width: halfW, height: screenH
+      });
+      const rightWin = await chrome.windows.create({
+        tabId: other.id, left: originL + halfW, top: originT, width: screenW - halfW, height: screenH
+      });
+      await chrome.windows.update(rightWin.id, { focused: true });
+    }
+  },
+  {
     id: 'cmd.restoreclosed', type: 'command', title: '恢复最近关闭的标签页', subtitle: '重新打开刚刚关闭的标签页',
     icon: 'restore', alias: ['/undo'], browserKbd: 'Ctrl Shift T', keywords: ['restore', 'reopen', 'undo', 'closed'],
     action: () => chrome.sessions.restore()
@@ -282,6 +340,9 @@ const COMMANDS = [
   },
 
   // ---- 客户端命令（由 content.js 本地执行）----
+  { id: 'cmd.screenshotarea', type: 'command', title: '区域截图', subtitle: '拖动框选页面区域，保存为 PNG', icon: 'crop', alias: ['/ssa'], keywords: ['screenshot', 'area', 'region', 'crop', 'snip'], client: true },
+  { id: 'cmd.colorpicker', type: 'command', title: '屏幕取色器', subtitle: '从页面任意位置取色，复制 HEX/RGB/HSL', icon: 'dropper', alias: ['/pick'], keywords: ['color', 'picker', 'eyedropper', 'dropper'], client: true },
+  { id: 'cmd.ruler', type: 'command', title: '像素尺子', subtitle: '在页面上拖拽测量元素间距与尺寸', icon: 'ruler', alias: ['/ruler'], keywords: ['ruler', 'measure', 'pixel', 'size', 'inspect'], client: true },
   { id: 'cmd.copyurl',   type: 'command', title: '复制当前页网址',       subtitle: '复制当前标签页的 URL 到剪贴板',      icon: 'link',      alias: ['/cu'],  keywords: ['copy', 'url', 'link'],      client: true },
   { id: 'cmd.copytitle', type: 'command', title: '复制当前页标题',       subtitle: '复制当前标签页的标题到剪贴板',       icon: 'copy',      alias: ['/ct'],  keywords: ['copy', 'title'],            client: true },
   { id: 'cmd.copymd',    type: 'command', title: '复制 Markdown 链接',   subtitle: '复制 [标题](网址) 格式到剪贴板',     icon: 'markdown',  alias: ['/md'],  keywords: ['copy', 'markdown', 'link'], client: true },
@@ -290,6 +351,13 @@ const COMMANDS = [
   { id: 'cmd.scrollbottom', type: 'command', title: '滚动到底部',        subtitle: '跳到页面最下方',                      icon: 'arrow-down', alias: ['/btm'], keywords: ['scroll', 'bottom'],         client: true },
   { id: 'cmd.print',     type: 'command', title: '打印页面',             subtitle: '调用浏览器打印当前页',                icon: 'printer',   alias: ['/print'], browserKbd: 'Ctrl P', keywords: ['print'], client: true },
   { id: 'cmd.fullscreen', type: 'command', title: '切换全屏',            subtitle: '进入 / 退出页面全屏',                 icon: 'fullscreen', alias: ['/fs'],  keywords: ['fullscreen', 'f11'],       client: true },
+  { id: 'cmd.copyselection', type: 'command', title: '复制选中文本',     subtitle: '复制页面上当前选中的文本',            icon: 'copy',      alias: ['/cs'],  keywords: ['copy', 'selection', 'selected', 'text'], client: true },
+
+  // ---- 站点媒体控制（YouTube 等 HTML5 播放器，对标 TabCmdr Site Shortcuts）----
+  { id: 'cmd.mediaplaypause', type: 'command', title: '播放 / 暂停',     subtitle: '切换页面中视频或音频的播放状态',      icon: 'play',      alias: ['/pp'],  keywords: ['play', 'pause', 'video', 'youtube', 'media'], client: true },
+  { id: 'cmd.mediamute',   type: 'command', title: '视频静音 / 取消静音', subtitle: '切换页面媒体的静音状态',             icon: 'mute',      alias: ['/mm'],  keywords: ['mute', 'unmute', 'video', 'audio', 'volume'], client: true },
+  { id: 'cmd.mediaforward', type: 'command', title: '快进 10 秒',        subtitle: '页面视频快进 10 秒',                  icon: 'forward',   alias: ['/mf'],  keywords: ['forward', 'seek', 'skip', 'video'], client: true },
+  { id: 'cmd.mediaback',   type: 'command', title: '快退 10 秒',         subtitle: '页面视频快退 10 秒',                  icon: 'rewind',    alias: ['/mb'],  keywords: ['back', 'rewind', 'seek', 'video'], client: true },
 
   // ---- 工具入口（切换范围）----
   { id: 'cmd.emoji',   type: 'command', title: 'Emoji 搜索',   subtitle: '模糊搜索 Emoji，回车复制',       icon: 'smile',    alias: ['/e'],     keywords: ['emoji', 'emoticon', 'smile'], setScope: '/emoji ' },
@@ -297,6 +365,7 @@ const COMMANDS = [
   { id: 'cmd.weather', type: 'command', title: '天气查询',     subtitle: '查看城市当前天气与三天预报',     icon: 'cloud',    alias: ['/wx'],    keywords: ['weather', 'forecast'],        setScope: '/wx ' },
   { id: 'cmd.ai',      type: 'command', title: 'AI 助手',      subtitle: '与 AI 对话，@page 可携带当前页内容', icon: 'sparkles', alias: ['/ai'], keywords: ['ai', 'chat', 'gpt', 'claude', 'gemini'], setScope: '/ai ' },
   { id: 'cmd.rss',     type: 'command', title: 'RSS 阅读器',   subtitle: '阅读设置的订阅源或输入 feed 地址', icon: 'rss',      alias: ['/rss'],  keywords: ['rss', 'feed', 'subscribe'],  setScope: '/rss ' },
+  { id: 'cmd.calendar', type: 'command', title: '日历日程',    subtitle: '查看即将开始的日程，一键加入会议',  icon: 'calendar', alias: ['/cal'], keywords: ['calendar', 'event', 'meeting', 'schedule'], setScope: '/cal ' },
 
   // ---- 系统页面 ----
   {
@@ -343,8 +412,34 @@ const SCOPE_PREFIXES = [
   { scope: 'todo',      full: '/todo',      short: null },
   { scope: 'weather',   full: '/weather',   short: '/wx' },
   { scope: 'rss',       full: '/rss',       short: null },
+  { scope: 'calendar',  full: '/cal',       short: null },
   { scope: 'ai',        full: '/ai',        short: null }
 ];
+
+// TabCmdr 风格的冒号前缀别名（:b foo 等价于 /b foo），仅在输入以冒号开头时生效
+const COLON_ALIASES = {
+  ':t': '/tabs', ':tabs': '/tabs',
+  ':h': '/history', ':history': '/history',
+  ':b': '/bookmarks', ':bookmarks': '/bookmarks',
+  ':c': '/commands', ':commands': '/commands',
+  ':cl': '/closed', ':closed': '/closed',
+  ':d': '/downloads', ':downloads': '/downloads',
+  ':e': '/emoji', ':em': '/emoji', ':emoji': '/emoji',
+  ':todo': '/todo',
+  ':wx': '/weather', ':weather': '/weather',
+  ':rss': '/rss',
+  ':cal': '/cal', ':calendar': '/cal',
+  ':ai': '/ai'
+};
+// 把开头的冒号前缀（如 ":b foo"）规范化为斜杠前缀（"/b foo"），不匹配则原样返回
+function normalizeColonPrefix(trimmed) {
+  if (!trimmed.startsWith(':')) return trimmed;
+  const m = /^:(\w+)(?:\s+(.*))?$/.exec(trimmed);
+  if (!m) return trimmed;
+  const target = COLON_ALIASES[':' + m[1].toLowerCase()];
+  if (!target) return trimmed;
+  return m[2] != null ? `${target} ${m[2]}` : target;
+}
 
 // ========= 工具函数 =========
 function safeHostname(url) {
@@ -406,9 +501,10 @@ function scoreCommand(cmd, query) {
 }
 
 // ========= 搜索源 =========
-// 搜索 Tab
+// 搜索 Tab（跨所有窗口，对标 TabCmdr；当前窗口/活跃标签优先）
 async function searchTabs(query, limit) {
-  const tabs = await chrome.tabs.query({ currentWindow: true });
+  const tabs = await chrome.tabs.query({});
+  const curWin = await chrome.windows.getCurrent().catch(() => null);
   const scored = tabs
     .map(tab => ({
       ...tab,
@@ -417,7 +513,14 @@ async function searchTabs(query, limit) {
       score: scoreResult({ title: tab.title, url: tab.url }, query)
     }))
     .filter(t => !query || t.score > 0)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      // 同分：当前窗口优先，活跃标签优先
+      const aCur = curWin && a.windowId === curWin.id ? 1 : 0;
+      const bCur = curWin && b.windowId === curWin.id ? 1 : 0;
+      if (bCur !== aCur) return bCur - aCur;
+      return (b.active ? 1 : 0) - (a.active ? 1 : 0);
+    });
 
   return scored.slice(0, limit).map(t => ({
     id: `tab-${t.id}`,
@@ -427,6 +530,7 @@ async function searchTabs(query, limit) {
     url: t.url,
     tabId: t.id,
     active: t.active,
+    otherWindow: curWin ? t.windowId !== curWin.id : false,
     icon: 'tab'
   }));
 }
@@ -832,6 +936,97 @@ async function searchRss(query) {
   }
 }
 
+// ========= 日历（ICS 订阅源，对标 TabCmdr Calendar）=========
+// 解析 ICS 文本中的 VEVENT（简易解析：SUMMARY/DTSTART/DTEND/LOCATION/URL，支持日期与日期时间）
+function parseIcsDate(v) {
+  // 形如 20260812T090000Z / 20260812T090000 / 20260812
+  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?/.exec(v || '');
+  if (!m) return null;
+  if (m[4] == null) {
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); // 全天事件
+  }
+  const { 1: y, 2: mo, 3: d, 4: h, 5: mi, 6: s } = m;
+  if (m[7] === 'Z') return new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s));
+  return new Date(+y, +mo - 1, +d, +h, +mi, +s); // 本地时间
+}
+
+function parseIcsEvents(text) {
+  const events = [];
+  // ICS 折行：以空格/制表符开头的行是上一行的延续
+  const unfolded = text.replace(/\r?\n[ \t]/g, '');
+  const re = /BEGIN:VEVENT([\s\S]*?)END:VEVENT/gi;
+  let m;
+  while ((m = re.exec(unfolded))) {
+    const block = m[1];
+    const pick = (name) => {
+      const mm = new RegExp(`^${name}(?:;[^:]*)?:(.*)$`, 'im').exec(block);
+      return mm ? mm[1].trim() : '';
+    };
+    const summary = pick('SUMMARY');
+    const start = parseIcsDate(pick('DTSTART'));
+    const end = parseIcsDate(pick('DTEND'));
+    const location = pick('LOCATION');
+    let url = pick('URL');
+    // 会议链接常出现在 LOCATION / DESCRIPTION 里
+    if (!url) {
+      const lm = /(https?:\/\/[^\s<>"]+)/i.exec(location + ' ' + pick('DESCRIPTION'));
+      if (lm) url = lm[1];
+    }
+    if (start) events.push({ summary: summary || '(无标题)', start, end, location, url });
+  }
+  return events;
+}
+
+async function searchCalendar(query) {
+  const settings = await getSettings();
+  if (!settings.calendarFeeds.length) {
+    return [{
+      id: 'cal-nofeed', type: 'answer', icon: 'calendar',
+      title: '未配置日历订阅',
+      subtitle: '在 /opt 设置页粘贴 ICS 订阅地址（Google 日历 → 设置 → 日历集成 → 私密地址）'
+    }];
+  }
+  const now = Date.now();
+  const horizon = now + 14 * 24 * 60 * 60 * 1000; // 未来 14 天
+  const all = [];
+  for (const feed of settings.calendarFeeds) {
+    try {
+      const resp = await fetch(feed);
+      if (!resp.ok) continue;
+      const text = await resp.text();
+      for (const ev of parseIcsEvents(text)) {
+        const ts = ev.start.getTime();
+        if (ts >= now - 30 * 60 * 1000 && ts <= horizon) all.push(ev); // 进行中的也算
+      }
+    } catch (_) { /* 单个源失败不影响其余 */ }
+  }
+  all.sort((a, b) => a.start - b.start);
+
+  const q = (query || '').toLowerCase();
+  const matched = all.filter(ev => !q || ev.summary.toLowerCase().includes(q) || (ev.location || '').toLowerCase().includes(q));
+  if (!matched.length) {
+    return [{
+      id: 'cal-empty', type: 'answer', icon: 'calendar',
+      title: q ? `没有找到"${query}"相关的日程` : '未来 14 天没有日程',
+      subtitle: '仅显示 ICS 订阅源中未来两周的事件'
+    }];
+  }
+
+  const dayFmt = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' });
+  const timeFmt = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return matched.slice(0, 12).map((ev, i) => {
+    const soon = ev.start.getTime() - now < 60 * 60 * 1000 && ev.start.getTime() > now - 30 * 60 * 1000;
+    return {
+      id: `cal-${i}-${ev.start.getTime()}`,
+      type: 'calendar',
+      title: `${soon ? '🔴 ' : ''}${ev.summary}`,
+      subtitle: `${dayFmt.format(ev.start)} ${timeFmt.format(ev.start)}${ev.location ? ' · ' + ev.location : ''}${ev.url ? ' · 回车加入会议' : ''}`,
+      url: ev.url || null,
+      icon: 'calendar'
+    };
+  });
+}
+
 // ========= 即时答案（计算器 / 单位 / 时区 / 颜色 / 进制）=========
 
 // 安全数学表达式求值（递归下降，不碰 eval）
@@ -1165,6 +1360,14 @@ function tryOpenUrl(query) {
   return null;
 }
 
+// UUID v4 生成（SW 中 crypto 可用）
+function tryUuid(query) {
+  const q = query.trim().toLowerCase();
+  if (q !== 'uuid' && q !== 'uuid v4' && q !== 'guid') return null;
+  const id = crypto.randomUUID();
+  return { title: id, subtitle: 'UUID v4 · 回车复制', copyText: id };
+}
+
 // 汇总即时答案
 function instantAnswers(query) {
   const out = [];
@@ -1178,7 +1381,7 @@ function instantAnswers(query) {
       subtitle: r.subtitle,
       copyText: r.copyText || r.title,
       color: r.color,
-      icon: kind === 'calc' ? 'calc' : kind === 'color' ? 'palette' : kind === 'time' ? 'clock' : kind === 'radix' ? 'hash' : 'calc'
+      icon: { calc: 'calc', unit: 'calc', color: 'palette', time: 'clock', radix: 'hash', uuid: 'key' }[kind] || 'calc'
     });
   };
   push('calc', tryMath(query));
@@ -1186,12 +1389,30 @@ function instantAnswers(query) {
   push('time', tryTime(query));
   push('color', tryColor(query));
   push('radix', tryRadix(query));
+  push('uuid', tryUuid(query));
   return out;
+}
+
+// 搜索引擎匹配：query 形如 "g 关键词"，key 命中设置中的自定义引擎
+function matchSearchEngine(query, engines) {
+  const m = /^(\S+)\s+(.+)$/.exec(query.trim());
+  if (!m) return null;
+  const eng = (engines || []).find(e => e.key && e.key.toLowerCase() === m[1].toLowerCase());
+  if (!eng || !eng.url) return null;
+  const url = eng.url.replace(/%s/g, encodeURIComponent(m[2].trim()));
+  return {
+    id: `engine-${eng.key}-${m[2]}`,
+    type: 'websearch',
+    title: `在 ${eng.key} 搜索"${m[2].trim()}"`,
+    subtitle: url,
+    url,
+    icon: 'search'
+  };
 }
 
 // ========= 解析搜索模式 =========
 function parseQuery(rawQuery) {
-  const trimmed = rawQuery.trim();
+  const trimmed = normalizeColonPrefix(rawQuery.trim());
   for (const { scope, full, short } of SCOPE_PREFIXES) {
     if (trimmed.startsWith(full + ' ')) return { scope, query: trimmed.slice(full.length + 1).trim() };
     if (trimmed === full)                return { scope, query: '' };
@@ -1221,6 +1442,7 @@ async function performSearch(rawQuery) {
       case 'todo':      return await searchTodos(query);
       case 'weather':   return await searchWeather(query);
       case 'rss':       return await searchRss(query);
+      case 'calendar':  return await searchCalendar(query);
       case 'ai':        return []; // AI 模式由 content 本地接管
       default: {
         // 空查询：Tab + 命令（冷启动快）
@@ -1244,9 +1466,11 @@ async function performSearch(rawQuery) {
           return results.slice(0, limit);
         }
 
-        // 即时答案（计算/单位/时区/颜色/进制）同步可得，置顶
+        // 即时答案（计算/单位/时区/颜色/进制/UUID）同步可得，置顶
         const answers = instantAnswers(query);
         const openUrl = answers.length ? null : tryOpenUrl(query);
+        const settings = await getSettings();
+        const engineHit = matchSearchEngine(query, settings.searchEngines);
 
         const [tabs, commands, history, bookmarks, closed] = await Promise.all([
           searchTabs(query, 8),
@@ -1268,6 +1492,7 @@ async function performSearch(rawQuery) {
         };
 
         add(answers);
+        if (engineHit) results.push(engineHit);
         if (openUrl) {
           results.push({
             id: `openurl-${openUrl.url}`, type: 'openurl',
@@ -1305,6 +1530,7 @@ const AI_PROVIDERS = {
   deepseek:   { type: 'openai',    baseUrl: 'https://api.deepseek.com/v1',                  model: 'deepseek-chat' },
   grok:       { type: 'openai',    baseUrl: 'https://api.x.ai/v1',                          model: 'grok-3-mini' },
   mistral:    { type: 'openai',    baseUrl: 'https://api.mistral.ai/v1',                    model: 'mistral-small-latest' },
+  perplexity: { type: 'openai',    baseUrl: 'https://api.perplexity.ai',                    model: 'sonar' },
   anthropic:  { type: 'anthropic', baseUrl: 'https://api.anthropic.com/v1',                 model: 'claude-3-5-haiku-latest' },
   gemini:     { type: 'gemini',    baseUrl: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.0-flash' },
   custom:     { type: 'openai',    baseUrl: '',                                             model: '' }
@@ -1376,12 +1602,27 @@ async function aiChat(userMessages) {
 }
 
 // ========= 执行选中的结果 =========
-async function executeItem(item) {
+// tabAction：对 tab 类型结果的修饰操作（content 修饰键触发），'close' | 'pin' | 'mute'
+async function executeItem(item, tabAction) {
   if (!item) return;
 
   switch (item.type) {
     case 'tab': {
       try {
+        if (tabAction === 'close') {
+          await chrome.tabs.remove(item.tabId);
+          return { refresh: true }; // 通知 content 刷新列表且保持面板打开
+        }
+        if (tabAction === 'pin') {
+          const t = await chrome.tabs.get(item.tabId);
+          await chrome.tabs.update(item.tabId, { pinned: !t.pinned });
+          return { refresh: true };
+        }
+        if (tabAction === 'mute') {
+          const t = await chrome.tabs.get(item.tabId);
+          await chrome.tabs.update(item.tabId, { muted: !t.mutedInfo?.muted });
+          return { refresh: true };
+        }
         await chrome.tabs.update(item.tabId, { active: true });
         const tab = await chrome.tabs.get(item.tabId).catch(() => null);
         if (tab && tab.windowId != null) {
@@ -1389,6 +1630,14 @@ async function executeItem(item) {
         }
       } catch (e) {
         console.error('Failed to switch tab:', e);
+      }
+      break;
+    }
+
+    case 'calendar': {
+      // 有会议/详情链接则打开，否则无操作
+      if (item.url) {
+        try { await chrome.tabs.create({ url: item.url, active: true }); } catch (e) {}
       }
       break;
     }
@@ -1461,9 +1710,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'EXECUTE') {
-    executeItem(message.item).then(() => {
-      sendResponse({ success: true });
+    executeItem(message.item, message.tabAction).then((r) => {
+      sendResponse({ success: true, refresh: !!(r && r.refresh) });
     }).catch(err => {
+      console.error(err);
+      sendResponse({ success: false, error: err.message });
+    });
+    return true;
+  }
+
+  // 区域截图：content 框选后发来 CSS 像素坐标，这里截屏并按 devicePixelRatio 裁剪下载
+  if (message.type === 'SCREENSHOT_AREA') {
+    (async () => {
+      const rect = message.rect || {};
+      const dpr = rect.dpr || 1;
+      const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+      const blob = await (await fetch(dataUrl)).blob();
+      const bmp = await createImageBitmap(blob);
+      const x = Math.max(0, Math.round(rect.x * dpr));
+      const y = Math.max(0, Math.round(rect.y * dpr));
+      const w = Math.min(bmp.width - x, Math.round(rect.width * dpr));
+      const h = Math.min(bmp.height - y, Math.round(rect.height * dpr));
+      if (w <= 0 || h <= 0) throw new Error('选区超出截图范围');
+      const canvas = new OffscreenCanvas(w, h);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bmp, x, y, w, h, 0, 0, w, h);
+      const out = await canvas.convertToBlob({ type: 'image/png' });
+      // SW 无 FileReader，手动转 base64
+      const buf = new Uint8Array(await out.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < buf.length; i += 0x8000) {
+        bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+      }
+      const outUrl = 'data:image/png;base64,' + btoa(bin);
+      await chrome.downloads.download({
+        url: outUrl,
+        filename: `gofun-screenshot-area-${Date.now()}.png`,
+        saveAs: false
+      });
+      sendResponse({ success: true });
+    })().catch(err => {
       console.error(err);
       sendResponse({ success: false, error: err.message });
     });
@@ -1598,7 +1884,8 @@ chrome.action.onClicked.addListener(async (tab) => {
 let cacheTimer = null;
 async function cacheTabs() {
   try {
-    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const tabs = await chrome.tabs.query({});
+    const curWin = await chrome.windows.getCurrent().catch(() => null);
     const simplified = tabs.map(t => ({
       id: `tab-${t.id}`,
       type: 'tab',
@@ -1607,6 +1894,7 @@ async function cacheTabs() {
       url: t.url,
       tabId: t.id,
       active: t.active,
+      otherWindow: curWin ? t.windowId !== curWin.id : false,
       icon: 'tab'
     }));
     await chrome.storage.local.set({ cachedTabs: simplified });

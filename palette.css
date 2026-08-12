@@ -72,6 +72,53 @@
   padding-bottom: 10vh;
 }
 
+/* Notch 模式：贴屏幕顶边，无圆角顶边，像 macOS 刘海下拉 */
+#quick-palette-overlay.qp-pos-notch {
+  padding-top: 0;
+}
+#quick-palette-overlay.qp-pos-notch #quick-palette-container {
+  border-radius: 0 0 16px 16px;
+  border-top: none;
+  transform: translateY(-12px);
+  transform-origin: 50% 0%;
+}
+#quick-palette-overlay.qp-pos-notch.qp-visible #quick-palette-container {
+  transform: translateY(0);
+}
+
+/* 四角位置 */
+#quick-palette-overlay.qp-pos-top-left,
+#quick-palette-overlay.qp-pos-top-right,
+#quick-palette-overlay.qp-pos-bottom-left,
+#quick-palette-overlay.qp-pos-bottom-right {
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+#quick-palette-overlay.qp-pos-top-left,
+#quick-palette-overlay.qp-pos-top-right {
+  align-items: flex-start;
+  padding-top: 6vh;
+}
+#quick-palette-overlay.qp-pos-bottom-left,
+#quick-palette-overlay.qp-pos-bottom-right {
+  align-items: flex-end;
+  padding-bottom: 6vh;
+}
+#quick-palette-overlay.qp-pos-top-left,
+#quick-palette-overlay.qp-pos-bottom-left {
+  justify-content: flex-start;
+}
+#quick-palette-overlay.qp-pos-top-right,
+#quick-palette-overlay.qp-pos-bottom-right {
+  justify-content: flex-end;
+}
+#quick-palette-overlay.qp-pos-bottom-left #quick-palette-container,
+#quick-palette-overlay.qp-pos-bottom-right #quick-palette-container {
+  transform-origin: 50% 100%;
+}
+
 /* ========= 面板容器 ========= */
 #quick-palette-container {
   position: relative;
@@ -564,7 +611,12 @@
 #quick-palette-overlay.qp-theme-catppuccin,
 #quick-palette-overlay.qp-theme-tokyo-night,
 #quick-palette-overlay.qp-theme-gruvbox,
-#quick-palette-overlay.qp-theme-rose-pine {
+#quick-palette-overlay.qp-theme-rose-pine,
+#quick-palette-overlay.qp-theme-one-dark,
+#quick-palette-overlay.qp-theme-monokai,
+#quick-palette-overlay.qp-theme-ayu,
+#quick-palette-overlay.qp-theme-palenight,
+#quick-palette-overlay.qp-theme-everforest {
   --qp-overlay-bg: rgba(0, 0, 0, 0.5);
   --qp-border: rgba(255, 255, 255, 0.08);
   --qp-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
@@ -657,6 +709,71 @@
   --qp-accent-bg: rgba(235, 188, 186, 0.16);
   --qp-accent-soft: rgba(235, 188, 186, 0.12);
   --qp-kbd-text: #908caa;
+}
+
+/* One Dark（Atom 经典） */
+#quick-palette-overlay.qp-theme-one-dark {
+  --qp-bg: rgba(40, 44, 52, 0.94);
+  --qp-text: #abb2bf;
+  --qp-dim: #8b93a5;
+  --qp-faint: #5c6370;
+  --qp-icon: #828997;
+  --qp-accent: #61afef;
+  --qp-accent-bg: rgba(97, 175, 239, 0.18);
+  --qp-accent-soft: rgba(97, 175, 239, 0.13);
+  --qp-kbd-text: #8b93a5;
+}
+
+/* Monokai */
+#quick-palette-overlay.qp-theme-monokai {
+  --qp-bg: rgba(39, 40, 34, 0.94);
+  --qp-text: #f8f8f2;
+  --qp-dim: #c2c2b4;
+  --qp-faint: #75715e;
+  --qp-icon: #a9a88f;
+  --qp-accent: #a6e22e;
+  --qp-accent-bg: rgba(166, 226, 46, 0.16);
+  --qp-accent-soft: rgba(166, 226, 46, 0.12);
+  --qp-kbd-text: #c2c2b4;
+}
+
+/* Ayu Dark */
+#quick-palette-overlay.qp-theme-ayu {
+  --qp-bg: rgba(11, 14, 20, 0.94);
+  --qp-text: #bfbdb6;
+  --qp-dim: #8a8f98;
+  --qp-faint: #565b66;
+  --qp-icon: #6c7380;
+  --qp-accent: #39bae6;
+  --qp-accent-bg: rgba(57, 186, 230, 0.18);
+  --qp-accent-soft: rgba(57, 186, 230, 0.13);
+  --qp-kbd-text: #8a8f98;
+}
+
+/* Material Palenight */
+#quick-palette-overlay.qp-theme-palenight {
+  --qp-bg: rgba(41, 45, 62, 0.94);
+  --qp-text: #a6accd;
+  --qp-dim: #8b92b8;
+  --qp-faint: #676e95;
+  --qp-icon: #7a80a8;
+  --qp-accent: #82aaff;
+  --qp-accent-bg: rgba(130, 170, 255, 0.18);
+  --qp-accent-soft: rgba(130, 170, 255, 0.13);
+  --qp-kbd-text: #8b92b8;
+}
+
+/* Everforest（柔和绿森林） */
+#quick-palette-overlay.qp-theme-everforest {
+  --qp-bg: rgba(45, 53, 59, 0.94);
+  --qp-text: #d3c6aa;
+  --qp-dim: #a7a089;
+  --qp-faint: #7a8478;
+  --qp-icon: #93a08e;
+  --qp-accent: #a7c080;
+  --qp-accent-bg: rgba(167, 192, 128, 0.18);
+  --qp-accent-soft: rgba(167, 192, 128, 0.13);
+  --qp-kbd-text: #a7a089;
 }
 
 /* Solarized 浅色（唯一的彩色浅主题） */
@@ -785,6 +902,181 @@
   padding: 40px 20px;
   color: #999;
   font-size: 13px;
+}
+
+/* 其他窗口 Tab badge（跨窗口搜索标识） */
+.qp-badge-window {
+  color: var(--qp-faint);
+  background: var(--qp-hover);
+}
+
+/* AI 预设提问按钮 */
+.qp-ai-presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+.qp-ai-preset {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--qp-accent);
+  background: var(--qp-accent-soft);
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.qp-ai-preset:hover {
+  background: var(--qp-accent-bg);
+  transform: translateY(-1px);
+}
+
+/* ========= 区域截图选框（挂在 body 上，自含字体） ========= */
+#gofun-snip-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  cursor: crosshair;
+  background: rgba(0, 0, 0, 0.25);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Segoe UI", Roboto, sans-serif;
+}
+#gofun-snip-tip {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(28, 28, 30, 0.92);
+  color: #fff;
+  font-size: 12.5px;
+  pointer-events: none;
+}
+#gofun-snip-tip b { color: #0a84ff; }
+#gofun-snip-box {
+  position: fixed;
+  border: 1.5px solid #0a84ff;
+  background: rgba(10, 132, 255, 0.08);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+#gofun-snip-size {
+  position: absolute;
+  left: 0;
+  top: -26px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #0a84ff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ========= 像素尺子（挂在 body 上） ========= */
+#gofun-ruler-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  cursor: crosshair;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Segoe UI", Roboto, sans-serif;
+}
+#gofun-ruler-h,
+#gofun-ruler-v {
+  position: fixed;
+  background: rgba(255, 59, 48, 0.55);
+  pointer-events: none;
+}
+#gofun-ruler-h { left: 0; right: 0; height: 1px; }
+#gofun-ruler-v { top: 0; bottom: 0; width: 1px; }
+#gofun-ruler-tip {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(28, 28, 30, 0.92);
+  color: #fff;
+  font-size: 12.5px;
+  pointer-events: none;
+}
+#gofun-ruler-tip b { color: #ff453a; }
+#gofun-ruler-box {
+  position: fixed;
+  border: 1.5px dashed rgba(255, 59, 48, 0.9);
+  background: rgba(255, 59, 48, 0.06);
+  pointer-events: none;
+}
+#gofun-ruler-size {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: rgba(255, 59, 48, 0.95);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+#gofun-ruler-pos {
+  position: fixed;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(28, 28, 30, 0.85);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
+}
+
+/* ========= 取色结果 Toast（挂在 body 上） ========= */
+#gofun-color-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%) translateY(8px);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(28, 28, 30, 0.94);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+#gofun-color-toast.qp-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#gofun-color-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+#gofun-color-vals {
+  font-size: 12.5px;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+#gofun-color-tip {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 4px;
 }
 
 /* ========= 窄屏 ========= */

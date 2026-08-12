@@ -8,10 +8,11 @@
 
 **GoFun**（谐音 Go & Find）是一个 Chrome/Edge Manifest V3 浏览器扩展，功能类似 VSCode `Ctrl+Shift+P` 命令面板，对标 TabCmdr（含其付费功能的免费替代）：
 - 按快捷键呼出悬浮面板
-- 模糊搜索当前窗口的 Tab、浏览历史、书签、最近关闭的标签页、下载记录，并可执行 45 条内置命令
-- 支持范围前缀（`/tabs` `/t` `/history` `/h` `/bookmarks` `/b` `/commands` `/c` `/closed` `/cl` `/downloads` `/d` `/emoji` `/e` `/todo` `/weather` `/wx` `/rss` `/ai`）和命令缩写（`/n` `/w` `/r` 等）
-- 内置工具：计算器/单位换算等即时答案、Emoji 搜索复制、待办清单、天气查询、RSS 阅读器、AI 聊天（自带 Key 直连 OpenAI/Claude/Gemini/DeepSeek 等）、截图、二维码、复制标题/链接/Markdown
-- 10 套主题（跟随系统/浅色/深色/Dracula/Nord/Catppuccin/Tokyo Night/Gruvbox/Solarized/Rosé Pine）+ 紧凑模式 + 面板位置设置，配置存 `chrome.storage.sync`
+- 模糊搜索**所有窗口**的 Tab（当前窗口/活跃优先，跨窗口带「其他窗口」badge）、浏览历史、书签、最近关闭的标签页、下载记录，并可执行 57 条内置命令
+- 支持范围前缀（`/tabs` `/t` `/history` `/h` `/bookmarks` `/b` `/commands` `/c` `/closed` `/cl` `/downloads` `/d` `/emoji` `/e` `/todo` `/weather` `/wx` `/rss` `/cal` `/ai`）、命令缩写（`/n` `/w` `/r` 等）和 TabCmdr 风格冒号前缀（`:t` `:b` `:cal`…）
+- 内置工具：计算器/单位换算/进制/UUID 等即时答案、Emoji 搜索复制、待办清单、天气查询、RSS 阅读器、ICS 日历日程、AI 聊天（自带 Key 直连 OpenAI/Claude/Gemini/DeepSeek/Grok/Mistral/Perplexity 等，支持预设提问与 @page 页面上下文）、区域截图、屏幕取色器、像素尺子、页面媒体控制、二维码、复制标题/链接/Markdown/选中文本
+- 自定义搜索引擎（设置页配 `key + URL(%s)`，面板输入 `key 关键字` 直达）
+- 14 套主题（跟随系统/浅色/深色/Dracula/Nord/Catppuccin/Tokyo Night/Gruvbox/Solarized/Rosé Pine/One Dark/Monokai/Ayu Dark/Palenight/Everforest）+ 紧凑模式 + 面板位置（居中/靠上/靠下/刘海 notch/四角），配置存 `chrome.storage.sync`
 - Apple Spotlight 风格毛玻璃 UI，无构建依赖，纯原生 JS/CSS
 
 ---
@@ -21,7 +22,7 @@
 ```
 e:\Dev\gofun\
 ├── manifest.json       # MV3 配置：权限、快捷键、content script、图标、options 页
-├── background.js       # Service Worker：搜索逻辑、45 条命令、消息路由、Tab 缓存、AI 请求
+├── background.js       # Service Worker：搜索逻辑、57 条命令、消息路由、Tab 缓存、AI 请求、ICS 日历、区域截图
 ├── content.js          # 注入到页面的 UI：面板 DOM、键盘/鼠标交互、渲染、AI 聊天界面、主题应用
 ├── palette.css         # 面板全部样式（CSS 变量主题系统 + 紧凑模式 + 位置 + 窄屏响应式）
 ├── emoji-data.js       # Emoji 数据集（全局变量 GOFUN_EMOJI_DATA，1480 条，中英文关键词）
@@ -87,8 +88,9 @@ e:\Dev\gofun\
 |---|---|---|
 | `PING` | 无 | `{ pong: true }`（用于预热 SW） |
 | `SEARCH` | `{ query: string }` | `{ results: ResultItem[] }` |
-| `EXECUTE` | `{ item: ResultItem }` | `{ success: boolean, error?: string }` |
+| `EXECUTE` | `{ item: ResultItem, tabAction?: string }` | `{ success: boolean, error?: string, refresh?: boolean }`（tabAction='close' 时关闭对应 Tab 并要求面板刷新，Alt+Enter 触发） |
 | `GET_TAB_CACHE` | 无 | `{ tabs: ResultItem[] }`（从 storage 读取，SW 无需活跃） |
+| `SCREENSHOT_AREA` | `{ rect: {x,y,width,height,dpr} }` | `{ success, error? }`（区域截图：captureVisibleTab 全屏 → ImageBitmap 裁剪 → dataURL 下载） |
 | `TODO_ADD` | `{ text: string }` | `{ success }` |
 | `TODO_TOGGLE` | `{ id: string }` | `{ success }` |
 | `TODO_REMOVE` | `{ id: string }` | `{ success }` |
@@ -112,8 +114,8 @@ e:\Dev\gofun\
 核心四种类型 + 工具类型，通过 `type` 字段区分：
 
 ```js
-// Tab
-{ type: 'tab',      id: 'tab-<id>',  tabId: number, title, url, active: boolean, icon: 'tab' }
+// Tab（跨窗口搜索：otherWindow 标识非当前窗口，UI 显示「其他窗口」badge）
+{ type: 'tab',      id: 'tab-<id>',  tabId: number, title, url, active: boolean, otherWindow?: boolean, icon: 'tab' }
 // History
 { type: 'history',  id: 'history-<url>-<lastVisitTime>', title, url, lastVisitTime, icon: 'clock' }
 // Bookmark
@@ -143,11 +145,13 @@ e:\Dev\gofun\
 // URL 直达 / 网页搜索兜底
 { type: 'openurl',    id: 'openurl-<url>', title, url, icon: 'link' }
 { type: 'websearch',  id: 'websearch-<q>', title, url, icon: 'search' }
+// 日历日程（ICS 订阅，回车打开链接/会议地址）
+{ type: 'calendar',   id: 'cal-<uid>', title, subtitle, url, icon: 'calendar' }
 ```
 
-content.js 的 `GROUP_ORDER` 决定分组渲染顺序：`answer → tab → command → closed → download → history → bookmark → emoji → todo* → rss* → openurl → websearch`。
+content.js 的 `GROUP_ORDER` 决定分组渲染顺序：`answer → tab → command → closed → download → history → bookmark → emoji → todo* → rss* → calendar → openurl → websearch`。
 
-### Command 定义（background COMMANDS 数组，共 45 条）
+### Command 定义（background COMMANDS 数组，共 57 条）
 
 ```js
 {
@@ -165,14 +169,15 @@ content.js 的 `GROUP_ORDER` 决定分组渲染顺序：`answer → tab → comm
 }
 ```
 
-**45 条命令分组**（alias 详见代码）：
+**57 条命令分组**（alias 详见代码）：
 
 - **标签页基础**：新建/关闭/复制/重载/硬重载/后退/前进
-- **标签页整理**（对标 TabCmdr）：固定、静音、关闭重复 `/dedup`、关闭其他 `/co`、关闭右侧 `/cr`、按标题排序 `/sort`、按域名分组 `/group`、取消所有分组 `/ungroup`、合并所有窗口 `/merge`、挂起其他标签页 `/sus`、移到新窗口 `/mv`、恢复关闭 `/undo`
+- **标签页整理**（对标 TabCmdr）：固定、静音、关闭重复 `/dedup`、关闭其他 `/co`、关闭右侧 `/cr`、关闭左侧 `/cll`、收藏当前页 `/fav`、按标题排序 `/sort`、按域名分组 `/group`、取消所有分组 `/ungroup`、合并所有窗口 `/merge`、挂起其他标签页 `/sus`、移到新窗口 `/mv`、分屏视图 `/split`、恢复关闭 `/undo`
 - **窗口**：新建窗口 `/win`、无痕窗口 `/inc`
-- **缩放与页面**：放大/缩小/重置缩放、查看源代码、截图 `/shot`、复制标题、复制链接、复制 Markdown 链接、生成二维码、滚动到顶/底、打印、全屏
-- **工具入口**（setScope 切前缀）：Emoji `/emoji`、待办 `/todo`、天气 `/weather`、RSS `/rss`、AI 聊天 `/ai`、计算器 `/calc`
-- **系统页面**：管理扩展 `/ext`、浏览器设置 `/set`、书签管理器 `/bm`、历史记录 `/his`、下载记录 `/dl`、GoFun 设置页 `/opt`
+- **缩放与页面**：放大/缩小/重置缩放、查看源代码、截图 `/ss`、区域截图 `/ssa`（client）、屏幕取色器 `/pick`（client）、像素尺子 `/ruler`（client）、复制标题、复制链接、复制 Markdown 链接、复制选中文本 `/cs`（client）、生成二维码、滚动到顶/底、打印、全屏
+- **页面媒体**（client）：播放/暂停 `/pp`、静音 `/mm`、快进 `/mf`、快退 `/mb`
+- **工具入口**（setScope 切前缀）：Emoji `/emoji`、待办 `/todo`、天气 `/weather`、RSS `/rss`、日历 `/cal`、AI 聊天 `/ai`、计算器 `/calc`
+- **系统页面**：管理扩展 `/ext`、浏览器设置 `/set`、书签管理器 `/bm`、历史记录 `/his`、下载记录 `/dlp`、GoFun 设置页 `/opt`
 
 **新增命令的步骤**：
 1. 在 `background.js` 的 `COMMANDS` 数组添加一项（含 `action`）
@@ -196,12 +201,13 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 { scope: 'todo',      full: '/todo',      short: null  }
 { scope: 'weather',   full: '/weather',   short: '/wx' }
 { scope: 'rss',       full: '/rss',       short: null  }
+{ scope: 'calendar',  full: '/cal',       short: null  }
 { scope: 'ai',        full: '/ai',        short: null  }
 ```
 
 **匹配顺序必须"先长后短"**（full 在前，short 在后），否则 `/tabs` 会被 `/t` 抢先匹配。`/ai` 前缀进入 AI 聊天模式（不切搜索结果）。
 
-添加新 scope 时两处都要改。
+**冒号前缀别名（TabCmdr 风格）**：background 和 content 各维护一份 `COLON_ALIASES`（如 `:t`→`/tabs`、`:cal`→`/cal`），在 scope 解析前先做 `normalizeColonPrefix()` 归一化为 `/` 前缀，再走正常匹配。添加新 scope 时三处（SCOPE_PREFIXES × 2 + COLON_ALIASES × 2）都要改。
 
 ---
 
@@ -243,7 +249,7 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 
 | 阶段 | 延迟 | 数据来源 | 内容 |
 |---|---|---|---|
-| Phase 1 | 0ms | 内置 `COMMAND_SNAPSHOT` | 45 条命令立即出现 |
+| Phase 1 | 0ms | 内置 `COMMAND_SNAPSHOT` | 57 条命令立即出现 |
 | Phase 2 | ~1ms | `chrome.storage.local` 缓存 | Tab 列表从本地存储读出，无需 SW |
 | Phase 3 | ~50-200ms | SW `chrome.tabs.query` | 最新结果覆盖缓存 |
 
@@ -260,7 +266,7 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 | 快捷键 | 处理方 | 场景 |
 |---|---|---|
 | `Ctrl+Shift+P` / `Cmd+Shift+P` | Chrome `commands` API（manifest 注册） | 官方保底，所有页面（含 chrome://）可用 |
-| `Ctrl+P` / `Cmd+P` | content.js `window` 捕获阶段 keydown | 普通 http(s) 页面拦截，阻止打印对话框 |
+| `Ctrl+P` / `Cmd+P`、`Ctrl+K` / `Cmd+K` | content.js `window` 捕获阶段 keydown | 普通 http(s) 页面拦截，阻止打印对话框/浏览器地址栏搜索（Ctrl+K 对标 TabCmdr 默认快捷键） |
 
 **为什么分两层**：Chrome 不允许扩展覆盖 `Ctrl+P`（打印是保留快捷键）。manifest 里只能绑 `Ctrl+Shift+P`，`Ctrl+P` 靠页面 keydown 在 capture 阶段 `preventDefault()`。chrome:// 页面 content script 无法注入，所以 `Ctrl+P` 在这些页面会触发打印；`Ctrl+Shift+P` 始终可用。
 
@@ -280,7 +286,7 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 ## 性能优化点
 
 1. **SW 冷启动预热**：content script 注入后立即发 `PING` 消息唤醒 SW，用户按快捷键时 SW 通常已活跃
-2. **命令快照即时渲染**：`openPalette()` 同步渲染 `COMMAND_SNAPSHOT`（45 条内置命令），不等 SW 响应
+2. **命令快照即时渲染**：`openPalette()` 同步渲染 `COMMAND_SNAPSHOT`（57 条内置命令），不等 SW 响应
 3. **Tab 缓存秒显**：`chrome.storage.local` 存储 Tab 快照，打开面板时 ~1ms 读出，无需等 SW
 4. **延迟 Loading**：结果 120ms 内返回则不显示"搜索中…"，避免闪烁
 5. **60ms debounce**：输入时防抖，避免每次按键都发搜索
@@ -307,10 +313,11 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 
 - 所有颜色集中在 `#quick-palette-overlay` 的 `--qp-*` CSS 变量（bg/text/dim/faint/icon/accent/accent-bg/accent-soft/hover/scroll/kbd 等）
 - **跟随系统**（默认）：浅色变量为默认值，`@media (prefers-color-scheme: dark)` 覆盖为深色变量
-- **显式主题**：content.js 给 overlay 加 `qp-theme-<name>` class，变量覆盖媒体查询（class 选择器优先级更高），支持 light/dark/dracula/nord/catppuccin/tokyo-night/gruvbox/solarized/rose-pine
+- **显式主题**：content.js 给 overlay 加 `qp-theme-<name>` class，变量覆盖媒体查询（class 选择器优先级更高），支持 light/dark/dracula/nord/catppuccin/tokyo-night/gruvbox/solarized/rose-pine/one-dark/monokai/ayu/palenight/everforest
 - **紧凑模式**：`qp-compact` class 缩小宽度/字号/间距
-- **面板位置**：`qp-pos-center`（默认 12vh）/`qp-pos-top`（4vh）/`qp-pos-bottom`（贴底）
-- 新增主题：palette.css 加一个 `qp-theme-x` 变量块 + options.js 的 THEMES 数组加一项 + content.js 的 THEME_LIST 加一项
+- **面板位置**：`qp-pos-center`（默认 12vh）/`qp-pos-top`（4vh）/`qp-pos-bottom`（贴底）/`qp-pos-notch`（刘海贴顶，容器上边缘无圆角、从上方滑入）/四角 `qp-pos-top-left|top-right|bottom-left|bottom-right`
+- 新增主题：palette.css 加一个 `qp-theme-x` 变量块 + options.js 的 THEMES 数组加一项 + content.js 的 THEME_LIST 加一项（THEME_LIST 现含 14 套显式主题）
+- 新增位置：palette.css 加 `qp-pos-x` 布局 + content.js 的 POSITION_LIST 加一项 + options.html 的 position 下拉加 option
 
 ### 图标策略
 
