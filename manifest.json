@@ -1,19 +1,23 @@
 {
   "manifest_version": 3,
   "name": "GoFun - Go & Find 命令面板",
-  "version": "1.0.0",
-  "description": "GoFun（谐音 Go & Find）—— 使用快捷键呼出 VSCode 风格的命令面板，快速搜索打开的 Tab、历史记录、书签并执行命令。",
+  "version": "1.1.0",
+  "description": "GoFun（谐音 Go & Find）—— 使用快捷键呼出命令面板：搜索 Tab/历史/书签/最近关闭/下载，执行 40+ 命令，内置计算器、Emoji、待办、天气、截图、二维码、AI 聊天等工具。",
   "permissions": [
     "tabs",
     "history",
     "bookmarks",
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "sessions",
+    "downloads",
+    "tabGroups"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
+  "options_page": "options.html",
   "background": {
     "service_worker": "background.js"
   },
