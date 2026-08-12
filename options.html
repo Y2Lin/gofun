@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoFun 设置</title>
+<style>
+  /* GoFun 设置页 — Apple Spotlight 风格
+     浅色：白底毛玻璃 + 主色 #007aff
+     深色：#1c1c1e 系 + 主色 #0a84ff */
+
+  :root {
+    --accent: #007aff;
+    --accent-soft: rgba(0, 122, 255, 0.1);
+    --bg: #f5f5f7;
+    --card: rgba(255, 255, 255, 0.92);
+    --text: #1a1a1a;
+    --text-secondary: #8e8e93;
+    --border: rgba(0, 0, 0, 0.06);
+    --border-strong: rgba(0, 0, 0, 0.12);
+    --hover: rgba(0, 0, 0, 0.04);
+    --shadow: 0 24px 80px rgba(0, 0, 0, 0.16);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --accent: #0a84ff;
+      --accent-soft: rgba(10, 132, 255, 0.18);
+      --bg: #1c1c1e;
+      --card: rgba(40, 40, 42, 0.92);
+      --text: #f2f2f7;
+      --text-secondary: #98989d;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --hover: rgba(255, 255, 255, 0.06);
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+      "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+    min-height: 100vh;
+    padding: 48px 20px 80px;
+  }
+
+  .page {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  /* ========= 顶部标题 ========= */
+  .page-header {
+    margin-bottom: 32px;
+  }
+  .page-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .page-header p {
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* ========= 区块卡片 ========= */
+  .section {
+    background: var(--card);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .section h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .section .section-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 18px;
+  }
+
+  .field {
+    margin-top: 18px;
+  }
+  .field:first-of-type {
+    margin-top: 0;
+  }
+  .field > label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .field .hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  /* ========= 表单控件 ========= */
+  input[type="text"],
+  input[type="password"],
+  select,
+  textarea {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  input[type="text"]:focus,
+  input[type="password"]:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  textarea {
+    min-height: 96px;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238e8e93' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+
+  /* ========= 主题卡片 ========= */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 10px;
+  }
+  .theme-card {
+    cursor: pointer;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    user-select: none;
+  }
+  .theme-card:hover {
+    background: var(--hover);
+  }
+  .theme-card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .theme-card .swatches {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .theme-card .swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  .theme-card .theme-name {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* ========= Switch 开关 ========= */
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .switch-row .switch-label {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .switch-row .switch-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .switch {
+    position: relative;
+    width: 44px;
+    height: 26px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .switch .track {
+    position: absolute;
+    inset: 0;
+    background: rgba(120, 120, 128, 0.32);
+    border-radius: 13px;
+    transition: background 0.2s ease;
+  }
+  .switch .track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 22px;
+    height: 22px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .switch input:checked + .track {
+    background: var(--accent);
+  }
+  .switch input:checked + .track::after {
+    transform: translateX(18px);
+  }
+
+  /* ========= 底部操作区 ========= */
+  .footer-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .btn-save {
+    padding: 12px 36px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .btn-save:hover {
+    opacity: 0.88;
+  }
+  .btn-save:active {
+    transform: scale(0.97);
+  }
+  .save-status {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .save-status.visible {
+    opacity: 1;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  @media (max-width: 560px) {
+    body {
+      padding: 32px 14px 60px;
+    }
+    .section {
+      padding: 18px;
+      border-radius: 12px;
+    }
+    .theme-grid {
+      grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="page-header">
+    <h1>GoFun 设置</h1>
+    <p>命令面板外观与功能配置</p>
+  </header>
+
+  <!-- 外观 -->
+  <section class="section">
+    <h2>外观</h2>
+    <p class="section-desc">自定义命令面板的主题与布局</p>
+
+    <div class="field">
+      <label>主题</label>
+      <div class="theme-grid" id="theme-grid"></div>
+    </div>
+
+    <div class="field">
+      <div class="switch-row">
+        <div>
+          <div class="switch-label">紧凑模式</div>
+          <div class="switch-desc">缩小面板条目间距，单屏显示更多结果</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="compact">
+          <span class="track"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="position">面板位置</label>
+      <select id="position">
+        <option value="center">居中</option>
+        <option value="top">靠上</option>
+        <option value="bottom">靠下</option>
+        <option value="notch">刘海模式（贴屏幕顶边）</option>
+        <option value="top-left">左上角</option>
+        <option value="top-right">右上角</option>
+        <option value="bottom-left">左下角</option>
+        <option value="bottom-right">右下角</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- 搜索 -->
+  <section class="section">
+    <h2>搜索</h2>
+    <p class="section-desc">调整搜索的数据范围与自定义搜索引擎</p>
+
+    <div class="field">
+      <label for="history-days">历史记录范围</label>
+      <select id="history-days">
+        <option value="1">最近 24 小时</option>
+        <option value="7">最近 7 天</option>
+        <option value="30">最近 30 天</option>
+        <option value="90">最近 90 天</option>
+        <option value="365">最近一年</option>
+        <option value="0">全部</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="search-engines">自定义搜索引擎</label>
+      <textarea id="search-engines" placeholder="g https://www.google.com/search?q=%s&#10;gh https://github.com/search?q=%s&#10;每行一个：缩写 + 空格 + URL（%s 为关键字占位）"></textarea>
+      <p class="hint">每行一个：触发词 + 空格 + 搜索 URL（用 %s 代表关键字）。例如在面板输入 "gh react" 直接用 GitHub 搜索</p>
+    </div>
+  </section>
+
+  <!-- 工具 -->
+  <section class="section">
+    <h2>工具</h2>
+    <p class="section-desc">天气与 RSS 订阅相关配置</p>
+
+    <div class="field">
+      <label for="weather-city">默认天气城市</label>
+      <input type="text" id="weather-city" placeholder="Beijing">
+    </div>
+
+    <div class="field">
+      <label for="rss-feeds">RSS 订阅源</label>
+      <textarea id="rss-feeds" placeholder="https://example.com/feed.xml&#10;每行一个订阅地址"></textarea>
+      <p class="hint">每行填写一个 RSS 地址，空行会被忽略</p>
+    </div>
+
+    <div class="field">
+      <label for="calendar-feeds">日历订阅（ICS）</label>
+      <textarea id="calendar-feeds" placeholder="https://calendar.google.com/calendar/ical/xxx/basic.ics&#10;每行一个 ICS 订阅地址"></textarea>
+      <p class="hint">每行一个 ICS 订阅地址，面板输入 /cal 查看即将开始的日程</p>
+    </div>
+  </section>
+
+  <!-- AI 助手 -->
+  <section class="section">
+    <h2>AI 助手（自带 API Key）</h2>
+    <p class="section-desc">密钥仅保存在你自己的浏览器里，请求直接发往对应服务商</p>
+
+    <div class="field">
+      <label for="ai-provider">服务商</label>
+      <select id="ai-provider">
+        <option value="openai">OpenAI</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="grok">Grok (xAI)</option>
+        <option value="mistral">Mistral</option>
+        <option value="perplexity">Perplexity</option>
+        <option value="anthropic">Anthropic Claude</option>
+        <option value="gemini">Google Gemini</option>
+        <option value="custom">自定义</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="ai-api-key">API Key</label>
+      <input type="password" id="ai-api-key" placeholder="sk-...">
+    </div>
+
+    <div class="field">
+      <label for="ai-model">模型</label>
+      <input type="text" id="ai-model" placeholder="留空使用默认模型">
+    </div>
+
+    <div class="field hidden" id="ai-base-url-field">
+      <label for="ai-base-url">自定义 Base URL</label>
+      <input type="text" id="ai-base-url" placeholder="https://api.example.com/v1">
+    </div>
+  </section>
+
+  <div class="footer-bar">
+    <button class="btn-save" id="btn-save">保存</button>
+    <span class="save-status" id="save-status">已保存</span>
+  </div>
+
+</div>
+
+<script src="options.js"></script>
+</body>
+</html>
