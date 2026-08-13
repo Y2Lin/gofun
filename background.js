@@ -1602,7 +1602,8 @@ async function aiChat(userMessages) {
 }
 
 // ========= 执行选中的结果 =========
-// tabAction：对 tab 类型结果的修饰操作（content 修饰键触发），'close' | 'pin' | 'mute'
+// tabAction：对 tab 类型结果的修饰操作（content 悬停按钮 / 修饰键触发）
+// 支持：'close' | 'pin' | 'mute' | 'reload' | 'duplicate' | 'move' | 'group' | 'popout'
 async function executeItem(item, tabAction) {
   if (!item) return;
 
@@ -1621,6 +1622,40 @@ async function executeItem(item, tabAction) {
         if (tabAction === 'mute') {
           const t = await chrome.tabs.get(item.tabId);
           await chrome.tabs.update(item.tabId, { muted: !t.mutedInfo?.muted });
+          return { refresh: true };
+        }
+        if (tabAction === 'reload') {
+          await chrome.tabs.reload(item.tabId);
+          return { refresh: true };
+        }
+        if (tabAction === 'duplicate') {
+          await chrome.tabs.duplicate(item.tabId);
+          return { refresh: true };
+        }
+        if (tabAction === 'move') {
+          // 把该标签页抽到一个新窗口
+          await chrome.windows.create({ tabId: item.tabId });
+          return { refresh: true };
+        }
+        if (tabAction === 'popout') {
+          // 在新窗口打开该 URL（保留原标签页）
+          if (item.url) await chrome.windows.create({ url: item.url });
+          return { refresh: true };
+        }
+        if (tabAction === 'group') {
+          // 把同域名（含该标签页）的标签页归入同一组
+          const cur = await chrome.tabs.get(item.tabId);
+          const host = safeHostname(cur.url);
+          if (host) {
+            const tabs = await chrome.tabs.query({ windowId: cur.windowId });
+            const ids = tabs
+              .filter(t => safeHostname(t.url) === host)
+              .map(t => t.id);
+            if (ids.length) {
+              const gid = await chrome.tabs.group({ tabIds: ids });
+              await chrome.tabGroups.update(gid, { title: host }).catch(() => {});
+            }
+          }
           return { refresh: true };
         }
         await chrome.tabs.update(item.tabId, { active: true });

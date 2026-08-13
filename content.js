@@ -17,6 +17,7 @@
   let input = null;
   let resultsEl = null;
   let scopeEl = null;
+  let tabsBar = null;
   let selectedIndex = 0;
   let results = [];
   let searchTimeout = null;
@@ -25,6 +26,8 @@
   let lastQuery = '';
   let searchSeq = 0;   // 搜索请求序号，竞态时丢弃过期响应
   let currentSettings = null;
+  let activeCategory = 'all'; // 当前激活的分类 tab
+  let categoryByClick = false; // 标记分类是否由点击/Tab 切换（用于隐藏 scope 标签）
 
   // AI 聊天状态
   let aiMessages = [];       // [{role:'user'|'assistant', content}]
@@ -90,7 +93,11 @@
     rewind: '<svg viewBox="0 0 24 24"><path d="M11 5l-7 7 7 7M19 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4M3 9h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     key: '<svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 12l9-9M17 4l3 3M14 7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    'arrow-left-circle': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 12H8M11 8l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    'arrow-left-circle': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 12H8M11 8l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    monitor: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    'external-link': '<svg viewBox="0 0 24 24"><path d="M15 3h6v6M21 3l-9 9M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    'copy-link': '<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   };
 
   // 命令快照：与 background COMMANDS 保持字段一致（无 action），用于首次打开面板时立即渲染，不等 SW 响应
@@ -239,6 +246,52 @@
     }
   }
 
+  // 顶部分类 tab：与搜索 scope 一一对应（Tools 对应命令）
+  const CATEGORIES = [
+    { id: 'all',       label: 'All',             scope: ''          },
+    { id: 'tabs',      label: 'Tabs',            scope: '/tabs '    },
+    { id: 'bookmarks', label: 'Bookmarks',       scope: '/bookmarks ' },
+    { id: 'history',   label: 'History',         scope: '/history ' },
+    { id: 'downloads', label: 'Downloads',       scope: '/downloads ' },
+    { id: 'closed',    label: 'Recently Closed', scope: '/closed '  },
+    { id: 'tools',     label: 'Tools',           scope: '/commands ' }
+  ];
+
+  // 根据当前输入的 scope 推断分类 id（用于高亮对应 tab）
+  function categoryFromQuery(query) {
+    const scope = parseScope(query);
+    if (scope === 'commands') return 'tools';
+    if (['tabs', 'bookmarks', 'history', 'downloads', 'closed'].includes(scope)) return scope;
+    return 'all';
+  }
+
+  function setActiveCategory(catId, { byKeyboard = false } = {}) {
+    const cat = CATEGORIES.find(c => c.id === catId);
+    if (!cat) return;
+    activeCategory = catId;
+    categoryByClick = true;
+    if (tabsBar) {
+      tabsBar.querySelectorAll('.qp-tab').forEach(el => {
+        el.classList.toggle('qp-active', el.dataset.cat === catId);
+      });
+    }
+    // 同步输入框与搜索结果
+    if (input) {
+      input.value = cat.scope;
+      lastQuery = cat.scope;
+      selectedIndex = 0;
+      showScope(cat.scope);
+      if (parseScope(cat.scope) === 'ai') {
+        renderAiChat();
+      } else {
+        clearTimeout(searchTimeout);
+        cancelLoading();
+        performSearch(cat.scope);
+      }
+      input.focus();
+    }
+  }
+
   function faviconHtml(item) {
     const host = safeHostname(item.url);
     if (!host) return null;
@@ -318,18 +371,43 @@
     const inputWrap = document.createElement('div');
     inputWrap.id = 'quick-palette-input-wrap';
 
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'qp-search-icon';
+    searchIcon.innerHTML = ICONS.search;
+
     scopeEl = document.createElement('span');
     scopeEl.id = 'quick-palette-scope';
 
     input = document.createElement('input');
     input.id = 'quick-palette-input';
     input.type = 'text';
-    input.placeholder = '搜索 Tab、历史、书签、下载，输入 / 看命令，或直接算 2+2…';
+    input.placeholder = 'Search tabs · :b bookmarks · :h history · :d downloads · :s search...';
     input.autocomplete = 'off';
     input.spellcheck = false;
 
+    const escBtn = document.createElement('button');
+    escBtn.type = 'button';
+    escBtn.className = 'qp-esc-btn';
+    escBtn.textContent = 'ESC';
+    escBtn.setAttribute('aria-label', '关闭');
+    escBtn.addEventListener('click', closePalette);
+
+    inputWrap.appendChild(searchIcon);
     inputWrap.appendChild(scopeEl);
     inputWrap.appendChild(input);
+    inputWrap.appendChild(escBtn);
+
+    // 分类 tabs 行
+    tabsBar = document.createElement('div');
+    tabsBar.id = 'quick-palette-tabs';
+    tabsBar.innerHTML = CATEGORIES.map(c =>
+      `<button type="button" class="qp-tab${c.id === activeCategory ? ' qp-active' : ''}" data-cat="${c.id}">${escapeHtml(c.label)}</button>`
+    ).join('');
+    tabsBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.qp-tab');
+      if (!btn) return;
+      setActiveCategory(btn.dataset.cat);
+    });
 
     resultsEl = document.createElement('div');
     resultsEl.id = 'quick-palette-results';
@@ -338,16 +416,26 @@
     footer.id = 'quick-palette-footer';
     footer.innerHTML = `
       <div class="qp-hint">
-        <span><kbd>↑</kbd> <kbd>↓</kbd> 选择</span>
-        <span><kbd>↵</kbd> 确认</span>
-        <span><kbd>esc</kbd> 关闭</span>
+        <span class="qp-hint-key"><kbd>↑</kbd><kbd>↓</kbd> <em>Navigate</em></span>
+        <span class="qp-hint-key"><kbd>Tab</kbd> <em>Filter</em></span>
+        <span class="qp-hint-key"><kbd>↵</kbd> <em>Open</em></span>
+        <span class="qp-hint-key"><kbd>⌘W</kbd> <em>Close tab</em></span>
+        <span class="qp-hint-key"><kbd>esc</kbd> <em>Close</em></span>
       </div>
-      <div>
-        <span><kbd>/t</kbd> <kbd>/h</kbd> <kbd>/b</kbd> <kbd>/cl</kbd> <kbd>/d</kbd> <kbd>/e</kbd> <kbd>/todo</kbd> <kbd>/wx</kbd> <kbd>/ai</kbd></span>
+      <div class="qp-footer-right">
+        <span class="qp-brand">GoFun</span>
+        <button type="button" class="qp-settings-btn" id="qp-footer-settings" title="GoFun 设置" aria-label="设置">${ICONS.settings}</button>
       </div>
     `;
+    const settingsBtn = footer.querySelector('#qp-footer-settings');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', () => {
+        executeItem({ type: 'command', id: 'cmd.options' });
+      });
+    }
 
     container.appendChild(inputWrap);
+    container.appendChild(tabsBar);
     container.appendChild(resultsEl);
     container.appendChild(footer);
     overlay.appendChild(container);
@@ -413,7 +501,20 @@
   function showScope(query) {
     if (!scopeEl) return;
     const scope = getScopeLabel(query);
-    if (scope) {
+    // 同步分类 tab 高亮（用户手动输入时）
+    const inferred = categoryFromQuery(query);
+    if (inferred !== activeCategory) {
+      activeCategory = inferred;
+      if (tabsBar) {
+        tabsBar.querySelectorAll('.qp-tab').forEach(el => {
+          el.classList.toggle('qp-active', el.dataset.cat === inferred);
+        });
+      }
+    }
+    // 分类 tab 已表达范围时隐藏输入框内的 scope 标签；
+    // 但 emoji/todo/weather/rss/cal/ai 等无对应 tab 的 scope 仍显示
+    const scopeHasTab = ['tabs', 'history', 'bookmarks', 'commands', 'closed', 'downloads'].includes(parseScope(query));
+    if (scope && !(categoryByClick && scopeHasTab)) {
       scopeEl.textContent = scope;
       scopeEl.classList.add('qp-visible');
     } else {
@@ -423,13 +524,15 @@
     if (input) {
       input.placeholder = parseScope(query) === 'ai'
         ? '向 AI 提问，回车发送；@page 可附带当前页内容…'
-        : '搜索 Tab、历史、书签、下载，输入 / 看命令，或直接算 2+2…';
+        : 'Search tabs · :b bookmarks · :h history · :d downloads · :s search...';
     }
   }
 
   function handleInput(e) {
     const query = input.value;
     lastQuery = query;
+    // 用户手动输入时，不再按"点击分类"处理 scope 标签的显隐
+    if (e) categoryByClick = false;
     showScope(query);
     selectedIndex = 0;
 
@@ -472,6 +575,17 @@
   // 全局导航：面板可见时任何地方按下导航键都生效
   function handleGlobalNav(e) {
     if (!isVisible) return;
+
+    // Ctrl/Cmd+W：关闭选中的标签页（对标 TabCmdr 的 Close tab）
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'w' || e.key === 'W')) {
+      const item = results[selectedIndex];
+      if (item && item.type === 'tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        executeItem(item, 'close');
+        return;
+      }
+    }
 
     if ((e.ctrlKey || e.metaKey) && e.key !== 'Home' && e.key !== 'End') return;
 
@@ -544,9 +658,17 @@
         break;
       case 'Tab':
         e.preventDefault();
-        if (!aiMode) moveSelection(e.shiftKey ? -1 : 1);
+        if (aiMode) return;
+        // Tab / Shift+Tab 在分类 tab 间循环切换（对标 TabCmdr 的 Filter）
+        cycleCategory(e.shiftKey ? -1 : 1);
         break;
     }
+  }
+
+  function cycleCategory(delta) {
+    const idx = CATEGORIES.findIndex(c => c.id === activeCategory);
+    const next = CATEGORIES[(idx + delta + CATEGORIES.length) % CATEGORIES.length];
+    setActiveCategory(next.id);
   }
 
   // 只移动 .qp-selected class，不重建 DOM
@@ -588,6 +710,13 @@
     requestAnimationFrame(() => input && input.focus());
     selectedIndex = 0;
     lastQuery = '';
+    activeCategory = 'all';
+    categoryByClick = false;
+    if (tabsBar) {
+      tabsBar.querySelectorAll('.qp-tab').forEach(el => {
+        el.classList.toggle('qp-active', el.dataset.cat === 'all');
+      });
+    }
     showScope('');
     loadSettings();
 
@@ -623,6 +752,7 @@
         input = null;
         resultsEl = null;
         scopeEl = null;
+        tabsBar = null;
         results = [];
         selectedIndex = 0;
       }
@@ -684,7 +814,7 @@
       grouped[type].forEach((item) => {
         const globalIndex = items.indexOf(item);
         const el = document.createElement('div');
-        el.className = 'qp-item';
+        el.className = 'qp-item qp-type-' + type;
         if (item.done) el.classList.add('qp-done');
         if (globalIndex === selectedIndex) el.classList.add('qp-selected');
         el.dataset.index = String(globalIndex);
@@ -695,16 +825,48 @@
         else if (type === 'tab' && item.otherWindow) badge = '<span class="qp-badge qp-badge-window">其他窗口</span>';
         const shortcuts = type === 'command' ? shortcutsHtml(item.alias, item.browserKbd) : '';
 
+        // Tab 行：副标题显示 URL，右侧显示悬停操作工具栏 + 默认显示器图标
+        let subtitleHtml;
+        let rightHtml;
+        if (type === 'tab') {
+          subtitleHtml = highlight(item.url || '', q);
+          rightHtml = `
+            <div class="qp-tab-right">
+              <span class="qp-tab-monitor" title="切换到该标签页">${ICONS.monitor}</span>
+              <div class="qp-tab-actions">
+                <button type="button" class="qp-tab-action" data-action="reload" title="重新加载" tabindex="-1">${ICONS.refresh}</button>
+                <button type="button" class="qp-tab-action" data-action="mute" title="静音 / 取消静音" tabindex="-1">${ICONS.mute}</button>
+                <button type="button" class="qp-tab-action" data-action="pin" title="固定 / 取消固定" tabindex="-1">${ICONS.pin}</button>
+                <button type="button" class="qp-tab-action" data-action="duplicate" title="复制标签页" tabindex="-1">${ICONS.copy}</button>
+                <button type="button" class="qp-tab-action" data-action="move" title="移到新窗口" tabindex="-1">${ICONS.user}</button>
+                <button type="button" class="qp-tab-action" data-action="group" title="按域名分组" tabindex="-1">${ICONS.group}</button>
+                <button type="button" class="qp-tab-action" data-action="popout" title="在新窗口打开" tabindex="-1">${ICONS['external-link']}</button>
+                <button type="button" class="qp-tab-action" data-action="copylink" title="复制链接" tabindex="-1">${ICONS['copy-link']}</button>
+                <button type="button" class="qp-tab-action qp-tab-action-close" data-action="close" title="关闭标签页" tabindex="-1">${ICONS.x}</button>
+              </div>
+            </div>`;
+        } else {
+          subtitleHtml = highlight(item.subtitle || '', q);
+          rightHtml = shortcuts;
+        }
+
         el.innerHTML = `
           <div class="qp-icon">${iconHtml}</div>
           <div class="qp-content">
             <div class="qp-title">${highlight(item.title || '', q)}${badge}</div>
-            <div class="qp-subtitle">${highlight(item.subtitle || '', q)}</div>
+            <div class="qp-subtitle">${subtitleHtml}</div>
           </div>
-          ${shortcuts}
+          ${rightHtml}
         `;
 
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+          // 点击操作按钮时不触发整行的"切换标签页"
+          const actionBtn = e.target.closest('.qp-tab-action');
+          if (actionBtn) {
+            e.stopPropagation();
+            handleTabAction(item, actionBtn.dataset.action);
+            return;
+          }
           executeItem(item);
         });
 
@@ -718,6 +880,22 @@
 
       resultsEl.appendChild(groupEl);
     }
+  }
+
+  // Tab 行悬停操作：copylink 本地处理，其余交给 background 的 tabAction
+  function handleTabAction(item, action) {
+    if (action === 'copylink') {
+      copyText(item.url || '');
+      showToast('已复制链接');
+      return;
+    }
+    chrome.runtime.sendMessage({ type: 'EXECUTE', item, tabAction: action }, (resp) => {
+      if (chrome.runtime.lastError) {
+        console.error('Tab action error:', chrome.runtime.lastError.message);
+        return;
+      }
+      if (resp && resp.refresh) refreshResults();
+    });
   }
 
   // ========= 执行 =========
