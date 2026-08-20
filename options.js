@@ -10,15 +10,7 @@ const DEFAULTS = {
   theme: 'system',
   compact: false,
   position: 'center',
-  historyDays: 90,
-  weatherCity: '',
-  rssFeeds: [],
-  aiProvider: 'openai',
-  aiApiKey: '',
-  aiModel: '',
-  aiBaseUrl: '',
-  searchEngines: [],
-  calendarFeeds: []
+  historyDays: 90
 };
 
 /* 主题列表：value / 显示名 / 代表背景色 / 代表强调色 */
@@ -54,15 +46,6 @@ function cacheElements() {
   els.compact = $('compact');
   els.position = $('position');
   els.historyDays = $('history-days');
-  els.searchEngines = $('search-engines');
-  els.weatherCity = $('weather-city');
-  els.rssFeeds = $('rss-feeds');
-  els.calendarFeeds = $('calendar-feeds');
-  els.aiProvider = $('ai-provider');
-  els.aiApiKey = $('ai-api-key');
-  els.aiModel = $('ai-model');
-  els.aiBaseUrlField = $('ai-base-url-field');
-  els.aiBaseUrl = $('ai-base-url');
   els.btnSave = $('btn-save');
   els.saveStatus = $('save-status');
 }
@@ -104,12 +87,6 @@ function renderThemeGrid() {
   });
 }
 
-/* ========= 自定义 Base URL 显隐 ========= */
-function toggleBaseUrlField() {
-  const isCustom = els.aiProvider.value === 'custom';
-  els.aiBaseUrlField.classList.toggle('hidden', !isCustom);
-}
-
 /* ========= 回填表单 ========= */
 function fillForm(settings) {
   selectedTheme = THEMES.some((t) => t.value === settings.theme)
@@ -120,63 +97,15 @@ function fillForm(settings) {
   els.compact.checked = Boolean(settings.compact);
   els.position.value = settings.position;
   els.historyDays.value = String(settings.historyDays);
-  els.searchEngines.value = Array.isArray(settings.searchEngines)
-    ? settings.searchEngines.map((e) => `${e.key} ${e.url}`).join('\n')
-    : '';
-  els.weatherCity.value = settings.weatherCity;
-  els.rssFeeds.value = Array.isArray(settings.rssFeeds)
-    ? settings.rssFeeds.join('\n')
-    : '';
-  els.calendarFeeds.value = Array.isArray(settings.calendarFeeds)
-    ? settings.calendarFeeds.join('\n')
-    : '';
-  els.aiProvider.value = settings.aiProvider;
-  els.aiApiKey.value = settings.aiApiKey;
-  els.aiModel.value = settings.aiModel;
-  els.aiBaseUrl.value = settings.aiBaseUrl;
-  toggleBaseUrlField();
 }
 
 /* ========= 收集表单 ========= */
 function collectForm() {
-  const rssFeeds = els.rssFeeds.value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  const calendarFeeds = els.calendarFeeds.value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  // 每行：触发词 + 空格 + URL（%s 占位）
-  const searchEngines = els.searchEngines.value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => {
-      const sp = line.indexOf(' ');
-      if (sp <= 0) return null;
-      const key = line.slice(0, sp).trim();
-      const url = line.slice(sp + 1).trim();
-      if (!key || !url.includes('%s')) return null;
-      return { key, url };
-    })
-    .filter(Boolean);
-
   return {
     theme: selectedTheme,
     compact: els.compact.checked,
     position: els.position.value,
-    historyDays: parseInt(els.historyDays.value, 10),
-    weatherCity: els.weatherCity.value.trim(),
-    rssFeeds: rssFeeds,
-    calendarFeeds: calendarFeeds,
-    searchEngines: searchEngines,
-    aiProvider: els.aiProvider.value,
-    aiApiKey: els.aiApiKey.value.trim(),
-    aiModel: els.aiModel.value.trim(),
-    aiBaseUrl: els.aiBaseUrl.value.trim()
+    historyDays: parseInt(els.historyDays.value, 10)
   };
 }
 
@@ -224,6 +153,5 @@ document.addEventListener('DOMContentLoaded', () => {
   renderThemeGrid();
   loadSettings();
 
-  els.aiProvider.addEventListener('change', toggleBaseUrlField);
   els.btnSave.addEventListener('click', saveSettings);
 });

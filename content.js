@@ -11,7 +11,6 @@
   const SEARCH_DEBOUNCE = 60;
   const LOADING_DELAY = 120;  // 结果在 120ms 内返回则不显示"搜索中"，避免闪烁
   const SETTINGS_KEY = 'gofun_settings';
-  const AI_HISTORY_KEY = 'gofun_ai_chat';
 
   let overlay = null;
   let input = null;
@@ -28,10 +27,6 @@
   let currentSettings = null;
   let activeCategory = 'all'; // 当前激活的分类 tab
   let categoryByClick = false; // 标记分类是否由点击/Tab 切换（用于隐藏 scope 标签）
-
-  // AI 聊天状态
-  let aiMessages = [];       // [{role:'user'|'assistant', content}]
-  let aiSending = false;
 
   const ICONS = {
     tab: '<svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 6V4h6v2" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
@@ -72,18 +67,7 @@
     'arrow-down': '<svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     printer: '<svg viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="6" y="14" width="12" height="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     fullscreen: '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-    smile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 14s1.5 2 4 2 4-2 4-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>',
-    check: '<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    'check-circle': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 9.5L10.8 15 8 12.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    circle: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
-    trash: '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    cloud: '<svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    sparkles: '<svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L19.7 10l-5.8 1.9L12 17.7l-1.9-5.8L4.3 10l5.8-1.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 15l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-    rss: '<svg viewBox="0 0 24 24"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>',
     search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-    calc: '<svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01M16 19h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-    palette: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a9 9 0 0 0 9-9c0-1.5-1-2-2-2h-2.5a2 2 0 0 1-1.5-3.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-    hash: '<svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     split: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4v16" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
     crop: '<svg viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     dropper: '<svg viewBox="0 0 24 24"><path d="M2 22l1-4 9.5-9.5 3 3L6 21zM14 6l1.5-1.5a2.12 2.12 0 0 1 3 3L17 9zM12 8l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -91,8 +75,6 @@
     play: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/></svg>',
     forward: '<svg viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M5 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     rewind: '<svg viewBox="0 0 24 24"><path d="M11 5l-7 7 7 7M19 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4M3 9h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
-    key: '<svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 12l9-9M17 4l3 3M14 7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     'arrow-left-circle': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 12H8M11 8l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     monitor: '<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
@@ -147,18 +129,12 @@
     { id:'cmd.mediamute',    type:'command', title:'视频静音 / 取消静音', subtitle:'切换页面媒体静音状态',    icon:'mute',        alias:['/mm'],  client:true },
     { id:'cmd.mediaforward', type:'command', title:'快进 10 秒',       subtitle:'页面视频快进 10 秒',         icon:'forward',     alias:['/mf'],  client:true },
     { id:'cmd.mediaback',    type:'command', title:'快退 10 秒',       subtitle:'页面视频快退 10 秒',         icon:'rewind',      alias:['/mb'],  client:true },
-    { id:'cmd.emoji',        type:'command', title:'Emoji 搜索',       subtitle:'模糊搜索 Emoji，回车复制',   icon:'smile',       alias:['/e'],   setScope:'/emoji ' },
-    { id:'cmd.todo',         type:'command', title:'待办事项',         subtitle:'快速管理你的待办清单',       icon:'check',       alias:['/todo'], setScope:'/todo ' },
-    { id:'cmd.weather',      type:'command', title:'天气查询',         subtitle:'查看城市当前天气与三天预报', icon:'cloud',       alias:['/wx'],  setScope:'/wx ' },
-    { id:'cmd.ai',           type:'command', title:'AI 助手',          subtitle:'与 AI 对话，@page 携带当前页内容', icon:'sparkles', alias:['/ai'], setScope:'/ai ' },
-    { id:'cmd.rss',          type:'command', title:'RSS 阅读器',       subtitle:'阅读订阅源或输入 feed 地址', icon:'rss',         alias:['/rss'], setScope:'/rss ' },
-    { id:'cmd.calendar',     type:'command', title:'日历日程',         subtitle:'查看即将开始的日程与会议',   icon:'calendar',    alias:['/cal'], setScope:'/cal ' },
     { id:'cmd.extensions',   type:'command', title:'管理扩展',         subtitle:'打开扩展管理页面',           icon:'grid',        alias:['/ext'] },
     { id:'cmd.settings',     type:'command', title:'浏览器设置',       subtitle:'打开设置页面',               icon:'settings',    alias:['/set'] },
     { id:'cmd.bookmarks',    type:'command', title:'书签管理器',       subtitle:'打开书签管理器',             icon:'bookmark',    alias:['/bm'],  browserKbd:'Ctrl Shift O' },
     { id:'cmd.history',      type:'command', title:'历史记录',         subtitle:'打开历史记录页面',           icon:'clock',       alias:['/his'], browserKbd:'Ctrl H' },
     { id:'cmd.downloadspage', type:'command', title:'下载内容',        subtitle:'打开下载管理页面',           icon:'download',    alias:['/dlp'], browserKbd:'Ctrl J' },
-    { id:'cmd.options',      type:'command', title:'GoFun 设置',       subtitle:'主题、位置、AI Key 等配置',  icon:'settings',    alias:['/opt'] }
+    { id:'cmd.options',      type:'command', title:'GoFun 设置',       subtitle:'主题、位置、紧凑模式等配置',  icon:'settings',    alias:['/opt'] }
   ];
 
   // 范围前缀定义（全称 + 缩写），和 background 的 SCOPE_PREFIXES 保持一致
@@ -168,13 +144,7 @@
     { scope: 'bookmarks', full: '/bookmarks', short: '/b',  label: '书签'     },
     { scope: 'commands',  full: '/commands',  short: '/c',  label: '命令'     },
     { scope: 'closed',    full: '/closed',    short: '/cl', label: '最近关闭' },
-    { scope: 'downloads', full: '/downloads', short: '/d',  label: '下载'     },
-    { scope: 'emoji',     full: '/emoji',     short: '/e',  label: 'Emoji'   },
-    { scope: 'todo',      full: '/todo',      short: null,  label: '待办'     },
-    { scope: 'weather',   full: '/weather',   short: '/wx', label: '天气'     },
-    { scope: 'rss',       full: '/rss',       short: null,  label: 'RSS'     },
-    { scope: 'calendar',  full: '/cal',       short: null,  label: '日历'    },
-    { scope: 'ai',        full: '/ai',        short: null,  label: 'AI'      }
+    { scope: 'downloads', full: '/downloads', short: '/d',  label: '下载'     }
   ];
 
   // TabCmdr 风格冒号前缀别名（:b foo 等价于 /b foo），与 background 的 COLON_ALIASES 同步
@@ -184,13 +154,7 @@
     ':b': '/bookmarks', ':bookmarks': '/bookmarks',
     ':c': '/commands', ':commands': '/commands',
     ':cl': '/closed', ':closed': '/closed',
-    ':d': '/downloads', ':downloads': '/downloads',
-    ':e': '/emoji', ':em': '/emoji', ':emoji': '/emoji',
-    ':todo': '/todo',
-    ':wx': '/weather', ':weather': '/weather',
-    ':rss': '/rss',
-    ':cal': '/cal', ':calendar': '/cal',
-    ':ai': '/ai'
+    ':d': '/downloads', ':downloads': '/downloads'
   };
   function normalizeColonPrefix(trimmed) {
     if (!trimmed.startsWith(':')) return trimmed;
@@ -281,13 +245,9 @@
       lastQuery = cat.scope;
       selectedIndex = 0;
       showScope(cat.scope);
-      if (parseScope(cat.scope) === 'ai') {
-        renderAiChat();
-      } else {
-        clearTimeout(searchTimeout);
-        cancelLoading();
-        performSearch(cat.scope);
-      }
+      clearTimeout(searchTimeout);
+      cancelLoading();
+      performSearch(cat.scope);
       input.focus();
     }
   }
@@ -299,20 +259,12 @@
   }
 
   function getIconHtml(item) {
-    // emoji：直接显示字符
-    if (item.type === 'emoji') {
-      return `<span class="qp-emoji-char">${item.emoji}</span>`;
-    }
-    // 颜色答案：显示色块
-    if (item.type === 'answer' && item.color) {
-      return `<span class="qp-color-swatch" style="background:${escapeHtml(item.color)}"></span>`;
-    }
-    // 命令/答案/待办等：用内置 SVG 图标
-    const svgTypes = ['command', 'answer', 'todo', 'todo-add', 'todo-clear', 'websearch', 'openurl', 'download', 'closed', 'calendar'];
+    // 命令类：用内置 SVG 图标
+    const svgTypes = ['command', 'websearch', 'openurl', 'download', 'closed'];
     if (svgTypes.includes(item.type)) {
       return (item.icon && ICONS[item.icon]) ? ICONS[item.icon] : ICONS.command;
     }
-    // tab / history / bookmark / rss：优先用网站 favicon，失败则用内置 SVG
+    // tab / history / bookmark：优先用网站 favicon，失败则用内置 SVG
     if (item.url) {
       const fav = faviconHtml(item);
       if (fav) return fav;
@@ -321,41 +273,35 @@
     return ICONS.tab;
   }
 
-  const GROUP_ORDER = ['answer', 'tab', 'command', 'closed', 'download', 'history', 'bookmark', 'emoji', 'todo', 'todo-add', 'todo-clear', 'calendar', 'rss-feed', 'rss', 'openurl', 'websearch'];
+  const GROUP_ORDER = ['tab', 'command', 'closed', 'download', 'history', 'bookmark', 'openurl', 'websearch'];
 
   function getGroupLabel(type) {
     switch (type) {
-      case 'answer': return '答案';
       case 'tab': return '标签页';
       case 'history': return '历史记录';
       case 'bookmark': return '书签';
       case 'command': return '命令';
       case 'closed': return '最近关闭';
       case 'download': return '下载';
-      case 'emoji': return 'Emoji';
-      case 'todo': case 'todo-add': case 'todo-clear': return '待办';
-      case 'calendar': return '日程';
-      case 'rss-feed': return 'RSS 订阅源';
-      case 'rss': return 'RSS 文章';
       case 'openurl': return '打开网址';
       case 'websearch': return '网页搜索';
       default: return '结果';
     }
   }
 
-  // 给文本中的 query 子串加 <mark class="qp-match"> 高亮
+  // 给文本中的 query 子串加 <mark class="qp-match"> 高亮（先定位再转义，避免特殊字符导致错位）
   function highlight(text, query) {
-    text = escapeHtml(text || '');
+    text = String(text || '');
     const q = (query || '').trim();
-    if (!q) return text;
+    if (!q) return escapeHtml(text);
     const lower = text.toLowerCase();
     const needle = q.toLowerCase();
     const idx = lower.indexOf(needle);
-    if (idx === -1) return text;
+    if (idx === -1) return escapeHtml(text);
     return (
-      text.slice(0, idx) +
-      '<mark class="qp-match">' + text.slice(idx, idx + needle.length) + '</mark>' +
-      text.slice(idx + needle.length)
+      escapeHtml(text.slice(0, idx)) +
+      '<mark class="qp-match">' + escapeHtml(text.slice(idx, idx + needle.length)) + '</mark>' +
+      escapeHtml(text.slice(idx + needle.length))
     );
   }
 
@@ -381,7 +327,7 @@
     input = document.createElement('input');
     input.id = 'quick-palette-input';
     input.type = 'text';
-    input.placeholder = 'Search tabs · :b bookmarks · :h history · :d downloads · :s search...';
+    input.placeholder = 'Search tabs · :b bookmarks · :h history · :d downloads…';
     input.autocomplete = 'off';
     input.spellcheck = false;
 
@@ -419,7 +365,7 @@
         <span class="qp-hint-key"><kbd>↑</kbd><kbd>↓</kbd> <em>Navigate</em></span>
         <span class="qp-hint-key"><kbd>Tab</kbd> <em>Filter</em></span>
         <span class="qp-hint-key"><kbd>↵</kbd> <em>Open</em></span>
-        <span class="qp-hint-key"><kbd>⌘W</kbd> <em>Close tab</em></span>
+        <span class="qp-hint-key"><kbd>alt↵</kbd> <em>Close tab</em></span>
         <span class="qp-hint-key"><kbd>esc</kbd> <em>Close</em></span>
       </div>
       <div class="qp-footer-right">
@@ -511,20 +457,12 @@
         });
       }
     }
-    // 分类 tab 已表达范围时隐藏输入框内的 scope 标签；
-    // 但 emoji/todo/weather/rss/cal/ai 等无对应 tab 的 scope 仍显示
-    const scopeHasTab = ['tabs', 'history', 'bookmarks', 'commands', 'closed', 'downloads'].includes(parseScope(query));
-    if (scope && !(categoryByClick && scopeHasTab)) {
+    // 分类 tab 已表达范围时隐藏输入框内的 scope 标签
+    if (scope && !categoryByClick) {
       scopeEl.textContent = scope;
       scopeEl.classList.add('qp-visible');
     } else {
       scopeEl.classList.remove('qp-visible');
-    }
-    // AI 模式下换 placeholder 提示
-    if (input) {
-      input.placeholder = parseScope(query) === 'ai'
-        ? '向 AI 提问，回车发送；@page 可附带当前页内容…'
-        : 'Search tabs · :b bookmarks · :h history · :d downloads · :s search...';
     }
   }
 
@@ -535,13 +473,6 @@
     if (e) categoryByClick = false;
     showScope(query);
     selectedIndex = 0;
-
-    // AI 模式：不发搜索，本地渲染聊天界面
-    if (parseScope(query) === 'ai') {
-      cancelLoading();
-      renderAiChat();
-      return;
-    }
 
     clearTimeout(searchTimeout);
     scheduleLoading();
@@ -608,30 +539,28 @@
     })();
     if (!isNavKey) return;
 
-    const aiMode = parseScope(lastQuery) === 'ai';
-
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        if (aiMode) scrollChat(40); else moveSelection(1);
+        moveSelection(1);
         break;
       case 'ArrowUp':
         e.preventDefault();
-        if (aiMode) scrollChat(-40); else moveSelection(-1);
+        moveSelection(-1);
         break;
       case 'PageDown':
         e.preventDefault();
-        if (aiMode) scrollChat(200); else moveSelection(5);
+        moveSelection(5);
         break;
       case 'PageUp':
         e.preventDefault();
-        if (aiMode) scrollChat(-200); else moveSelection(-5);
+        moveSelection(-5);
         break;
       case 'Home':
         if (e.metaKey || e.ctrlKey) {
           e.preventDefault();
           selectedIndex = 0;
-          renderResults(results);
+          updateSelectionClass();
           scrollSelectedIntoView();
         }
         break;
@@ -639,18 +568,14 @@
         if (e.metaKey || e.ctrlKey) {
           e.preventDefault();
           selectedIndex = Math.max(0, results.length - 1);
-          renderResults(results);
+          updateSelectionClass();
           scrollSelectedIntoView();
         }
         break;
       case 'Enter':
         e.preventDefault();
-        if (aiMode) {
-          sendAiMessage(stripScopePrefix(lastQuery));
-        } else {
-          // Alt+Enter：对标签页结果执行"关闭"（对标 TabCmdr 对任意搜索结果直接操作）
-          executeSelected(e.altKey ? 'close' : null);
-        }
+        // Alt+Enter：对标签页结果执行"关闭"（对标 TabCmdr 对任意搜索结果直接操作）
+        executeSelected(e.altKey ? 'close' : null);
         break;
       case 'Escape':
         e.preventDefault();
@@ -658,7 +583,6 @@
         break;
       case 'Tab':
         e.preventDefault();
-        if (aiMode) return;
         // Tab / Shift+Tab 在分类 tab 间循环切换（对标 TabCmdr 的 Filter）
         cycleCategory(e.shiftKey ? -1 : 1);
         break;
@@ -759,7 +683,7 @@
     }, 160);
   }
 
-  function performSearch(query) {
+  function performSearch(query, keepSelection) {
     if (!isVisible) return;
     const mySeq = ++searchSeq;
 
@@ -771,16 +695,23 @@
         return;
       }
       const newResults = response?.results || [];
+      // Tab 操作后的刷新：尽量保留用户当前选中项（按 id 匹配），找不到则回退到首个
+      const prevSelected = keepSelection ? results[selectedIndex] : null;
       results = newResults;
-      selectedIndex = results.length > 0 ? 0 : -1;
+      if (results.length === 0) {
+        selectedIndex = -1;
+      } else {
+        const keepIdx = prevSelected ? results.findIndex(r => r.id === prevSelected.id) : -1;
+        selectedIndex = keepIdx >= 0 ? keepIdx : 0;
+      }
       renderResults(results);
     });
   }
 
-  // 刷新当前列表（待办操作后保持面板打开）
+  // 刷新当前列表（Tab 操作后保持面板打开，尽量保留选中位置）
   function refreshResults() {
     if (!input) return;
-    performSearch(input.value);
+    performSearch(input.value, true);
   }
 
   function renderResults(items, highlightQuery) {
@@ -793,10 +724,12 @@
     }
 
     const grouped = {};
-    for (const item of items) {
+    const indexOfItem = new Map();
+    items.forEach((item, i) => {
+      indexOfItem.set(item, i);
       if (!grouped[item.type]) grouped[item.type] = [];
       grouped[item.type].push(item);
-    }
+    });
 
     resultsEl.innerHTML = '';
 
@@ -812,10 +745,9 @@
       groupEl.appendChild(label);
 
       grouped[type].forEach((item) => {
-        const globalIndex = items.indexOf(item);
+        const globalIndex = indexOfItem.get(item);
         const el = document.createElement('div');
         el.className = 'qp-item qp-type-' + type;
-        if (item.done) el.classList.add('qp-done');
         if (globalIndex === selectedIndex) el.classList.add('qp-selected');
         el.dataset.index = String(globalIndex);
 
@@ -853,7 +785,7 @@
         el.innerHTML = `
           <div class="qp-icon">${iconHtml}</div>
           <div class="qp-content">
-            <div class="qp-title">${highlight(item.title || '', q)}${badge}</div>
+            <div class="qp-title"><span class="qp-title-text">${highlight(item.title || '', q)}</span>${badge}</div>
             <div class="qp-subtitle">${subtitleHtml}</div>
           </div>
           ${rightHtml}
@@ -900,50 +832,6 @@
 
   // ========= 执行 =========
   function executeItem(item, tabAction) {
-    // 切换输入框内容（工具入口 / RSS 订阅源）
-    if (item.setScope || item.setInput) {
-      input.value = item.setScope || item.setInput;
-      input.focus();
-      handleInput();
-      return;
-    }
-
-    // 待办操作：保持面板打开并刷新
-    if (item.type === 'todo-add') {
-      sendBg({ type: 'TODO_ADD', text: item.text }, () => {
-        input.value = '/todo ';
-        lastQuery = input.value;
-        refreshResults();
-      });
-      return;
-    }
-    if (item.type === 'todo') {
-      sendBg({ type: 'TODO_TOGGLE', id: item.todoId }, refreshResults);
-      return;
-    }
-    if (item.type === 'todo-clear') {
-      sendBg({ type: 'TODO_CLEAR_DONE' }, refreshResults);
-      return;
-    }
-
-    // emoji：复制到剪贴板
-    if (item.type === 'emoji') {
-      copyText(item.emoji);
-      showToast(`已复制 ${item.emoji}`);
-      closePalette();
-      return;
-    }
-
-    // 即时答案：复制结果
-    if (item.type === 'answer') {
-      if (item.copyText) {
-        copyText(item.copyText);
-        showToast('已复制答案');
-      }
-      closePalette();
-      return;
-    }
-
     // 客户端命令（页面级操作）
     if (item.type === 'command' && item.client) {
       closePalette();
@@ -970,16 +858,6 @@
       }
     });
     closePalette();
-  }
-
-  function sendBg(message, cb) {
-    chrome.runtime.sendMessage(message, (resp) => {
-      if (chrome.runtime.lastError) {
-        console.error(message.type + ' error:', chrome.runtime.lastError.message);
-        return;
-      }
-      if (cb) cb(resp);
-    });
   }
 
   // 客户端命令实现
@@ -1277,143 +1155,6 @@
     window.addEventListener('keydown', onKey, true);
   }
 
-  // ========= AI 聊天 =========
-  function loadAiHistory(cb) {
-    try {
-      chrome.storage.local.get(AI_HISTORY_KEY, (obj) => {
-        aiMessages = obj[AI_HISTORY_KEY] || [];
-        if (cb) cb();
-      });
-    } catch (_) {
-      aiMessages = [];
-      if (cb) cb();
-    }
-  }
-  function saveAiHistory() {
-    try {
-      chrome.storage.local.set({ [AI_HISTORY_KEY]: aiMessages.slice(-50) });
-    } catch (_) {}
-  }
-
-  function renderAiChat() {
-    if (!resultsEl) return;
-    cancelLoading();
-    results = [];
-    selectedIndex = -1;
-
-    if (!aiMessages.length) {
-      const presets = [
-        { label: '总结本页', prompt: '总结一下 @page' },
-        { label: '提取要点', prompt: '提取关键要点 @page' },
-        { label: '翻译本页', prompt: '把主要内容翻译成中文 @page' },
-        { label: '解释代码', prompt: '解释其中的代码 @page' }
-      ];
-      resultsEl.innerHTML = `
-        <div id="quick-palette-ai-empty">
-          <div class="qp-ai-title">${ICONS.sparkles} AI 助手</div>
-          <div class="qp-ai-tip">输入问题后回车发送。支持 <b>@page</b> 携带当前页面内容（如"总结一下 @page"）。</div>
-          <div class="qp-ai-presets">${presets.map((p, i) =>
-            `<span class="qp-ai-preset" data-idx="${i}">${escapeHtml(p.label)}</span>`).join('')}</div>
-          <div class="qp-ai-tip">在 <b>/opt</b> 设置页配置 API Key（支持 OpenAI / Claude / Gemini / DeepSeek 等）。</div>
-          <div class="qp-ai-actions"><span class="qp-ai-clear" id="qp-ai-clear">清空对话</span></div>
-        </div>`;
-      bindAiClear();
-      // 预设提问：点击直接发送
-      resultsEl.querySelectorAll('.qp-ai-preset').forEach((el) => {
-        el.addEventListener('click', () => {
-          const p = presets[Number(el.dataset.idx)];
-          if (p) sendAiMessage(p.prompt);
-        });
-      });
-      return;
-    }
-
-    const html = aiMessages.map(m => {
-      const cls = m.role === 'user' ? 'qp-ai-user' : 'qp-ai-assistant';
-      const roleLabel = m.role === 'user' ? '我' : 'AI';
-      return `<div class="qp-ai-msg ${cls}${m.pending ? ' qp-ai-pending' : ''}">
-        <div class="qp-ai-role">${roleLabel}</div>
-        <div class="qp-ai-bubble">${m.pending ? '<span class="qp-loading-dots"><span></span><span></span><span></span></span>' : escapeHtml(m.content).replace(/\n/g, '<br>')}</div>
-      </div>`;
-    }).join('');
-
-    resultsEl.innerHTML = `<div id="quick-palette-ai">${html}
-      <div class="qp-ai-actions"><span class="qp-ai-clear" id="qp-ai-clear">清空对话</span></div></div>`;
-    bindAiClear();
-    resultsEl.scrollTop = resultsEl.scrollHeight;
-  }
-
-  function bindAiClear() {
-    const btn = resultsEl && resultsEl.querySelector('#qp-ai-clear');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        aiMessages = [];
-        saveAiHistory();
-        renderAiChat();
-        if (input) input.focus();
-      });
-    }
-  }
-
-  function scrollChat(delta) {
-    if (resultsEl) resultsEl.scrollTop += delta;
-  }
-
-  function grabPageText() {
-    try {
-      const text = (document.body && document.body.innerText) || '';
-      return text.replace(/\s+\n/g, '\n').trim().slice(0, 4000);
-    } catch (_) {
-      return '';
-    }
-  }
-
-  function sendAiMessage(text) {
-    text = (text || '').trim();
-    if (!text || aiSending) return;
-
-    const usePage = /@page\b/i.test(text);
-    const userText = text.replace(/@page\b/gi, '').trim() || '请总结这个页面';
-
-    const history = aiMessages.map(m => ({ role: m.role, content: m.content }));
-    if (usePage) {
-      const pageText = grabPageText();
-      history.push({
-        role: 'user',
-        content: `${userText}\n\n---- 当前页面内容（节选） ----\n标题：${document.title}\n网址：${location.href}\n${pageText}`
-      });
-    } else {
-      history.push({ role: 'user', content: userText });
-    }
-
-    aiMessages.push({ role: 'user', content: usePage ? `${userText}（含页面内容）` : userText });
-    aiMessages.push({ role: 'assistant', content: '', pending: true });
-    aiSending = true;
-
-    // 清空输入框中的问题，保留 /ai 前缀
-    if (input) {
-      input.value = lastQuery.trim().startsWith('/ai') ? '/ai ' : lastQuery.replace(/[^\s]+\s*$/, '');
-      if (!input.value.startsWith('/ai')) input.value = '/ai ';
-      lastQuery = input.value;
-    }
-    renderAiChat();
-
-    chrome.runtime.sendMessage({ type: 'AI_CHAT', messages: history }, (resp) => {
-      aiSending = false;
-      // 移除 pending 占位
-      aiMessages = aiMessages.filter(m => !m.pending);
-      if (chrome.runtime.lastError) {
-        aiMessages.push({ role: 'assistant', content: '发送失败：' + chrome.runtime.lastError.message });
-      } else if (resp && resp.ok) {
-        aiMessages.push({ role: 'assistant', content: resp.reply });
-      } else {
-        aiMessages.push({ role: 'assistant', content: '出错了：' + ((resp && resp.error) || '未知错误') });
-      }
-      saveAiHistory();
-      if (isVisible && parseScope(lastQuery) === 'ai') renderAiChat();
-    });
-  }
-
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -1481,8 +1222,7 @@
     }
   }, true);
 
-  // 预载 AI 历史 + 注入后立即发 PING 唤醒 Service Worker
-  loadAiHistory();
+  // 注入后立即发 PING 唤醒 Service Worker
   try {
     chrome.runtime.sendMessage({ type: 'PING' }, () => void chrome.runtime.lastError);
   } catch (_) { /* 扩展上下文失效时忽略 */ }

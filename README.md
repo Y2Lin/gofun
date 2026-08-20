@@ -6,12 +6,9 @@
 
 - **跨窗口搜索 Tab 页**：搜索所有窗口的标签页并快速切换，当前窗口/活跃标签优先，关键字在标题和 URL 中高亮，跨窗口结果带「其他窗口」标识。
 - **搜索浏览历史 / 书签 / 最近关闭 / 下载记录**：按标题或 URL 模糊搜索。
-- **50+ 内置命令**：新建/关闭/复制/固定/静音标签页、关闭重复/其他/左侧/右侧、按标题排序、按域名分组、合并窗口、挂起其他页、分屏视图、恢复关闭、收藏当前页、缩放、截图、二维码、复制标题/链接/Markdown 等。
+- **51 条内置命令**：新建/关闭/复制/固定/静音标签页、关闭重复/其他/左侧/右侧、按标题排序、按域名分组、合并窗口、挂起其他页、分屏视图、恢复关闭、收藏当前页、缩放、截图、二维码、复制标题/链接/Markdown 等。
 - **页面工具**：区域截图（拖框选）、屏幕取色器（复制 HEX/RGB）、像素尺子（拖拽测距）、复制选中文本、页面媒体控制（播放/暂停/静音/快进快退）。
-- **即时答案**：输入数学表达式、单位/汇率换算、颜色值、时间戳、进制转换、`uuid` 等直接出结果，回车复制。
-- **内置工具**：Emoji 搜索复制、待办清单、天气查询、RSS 阅读器、ICS 日历日程查看、AI 聊天（自带 Key，支持 OpenAI / Claude / Gemini / DeepSeek / Grok / Mistral / Perplexity 等，`@page` 可携带当前页内容）。
-- **自定义搜索引擎**：设置页配置触发词 + URL（如 `g https://www.google.com/search?q=%s`），面板输入 `g 关键字` 直达搜索。
-- **范围限定**：前缀 `/tabs` `/history` `/bookmarks` `/commands` `/closed` `/downloads` `/emoji` `/todo` `/weather` `/rss` `/cal` `/ai` 及缩写 `/t` `/h` `/b` `/c` 等；也支持 TabCmdr 风格冒号前缀（`:t`、`:b`、`:cal`…）。
+- **范围限定**：前缀 `/tabs` `/history` `/bookmarks` `/commands` `/closed` `/downloads` 及缩写 `/t` `/h` `/b` `/c` 等；也支持 TabCmdr 风格冒号前缀（`:t`、`:b`、`:cl`…）。
 - **14 套主题**：跟随系统/浅色/深色/Dracula/Nord/Catppuccin/Tokyo Night/Gruvbox/Solarized/Rosé Pine/One Dark/Monokai/Ayu Dark/Palenight/Everforest，另有紧凑模式、面板位置（居中/靠上/靠下/刘海/四角）设置。
 - **流畅体验**：Tab 缓存秒开、命令快照即时渲染、搜索防抖与竞态丢弃、暗/浅色自动适配。
 
@@ -24,11 +21,12 @@ GoFun 提供**双层快捷键**，普通网页「零配置」即可上手，内�
 - **全页面保底**：`Ctrl + Shift + P`（Windows / Linux）或 `Cmd + Shift + P`（macOS）
   在 `chrome://`、`edge://` 等无法注入脚本的页面里，官方快捷键一定可用。
 - **关闭面板**：`Esc`（或再次按下 `Ctrl+P`）
-- **选择**：`↑` / `↓` / `Tab` / `Shift+Tab`
+- **选择**：`↑` / `↓`
 - **翻页**：`PgUp` / `PgDn`
 - **跳到首 / 尾**：`Ctrl+Home` / `Ctrl+End`（macOS 为 `Cmd+Home` / `Cmd+End`）
 - **确认**：`Enter`
-- **关闭选中标签页**：`Alt + Enter`（对 Tab 结果直接关闭，面板保持打开）
+- **关闭选中标签页**：`Ctrl + W`（Mac 为 `Cmd + W`）或 `Alt + Enter`（对 Tab 结果直接关闭，面板保持打开）
+- **切换分类**：`Tab` / `Shift + Tab`（在顶部分类标签间循环）
 
 > 为什么要有两套？因为 Chrome 把 `Ctrl+P` 硬编码为打印快捷键，扩展无法自动替换它；
 > 但普通网页里 GoFun 会在页面层直接拦截 `Ctrl+P`，因此**绝大多数使用场景下你直接按 `Ctrl+P` 就行**。
@@ -45,12 +43,6 @@ GoFun 提供**双层快捷键**，普通网页「零配置」即可上手，内�
 | `/commands` | `/c` | 仅搜索内置命令 |
 | `/closed` | `/cl` | 仅搜索最近关闭的标签页 |
 | `/downloads` | `/d` | 仅搜索下载记录 |
-| `/emoji` | `/e` | Emoji 搜索 |
-| `/todo` | — | 待办清单 |
-| `/weather` | `/wx` | 天气查询 |
-| `/rss` | — | RSS 阅读器 |
-| `/cal` | — | 日历日程（ICS 订阅） |
-| `/ai` | — | AI 聊天 |
 
 > 提示：输入 `/` 但不匹配任何前缀时，会自动落入 `/commands` 命令搜索模式。
 
@@ -82,7 +74,6 @@ gofun/
 ├── background.js      # Service Worker：搜索与动作执行
 ├── content.js         # 内容脚本：命令面板 UI 与交互
 ├── palette.css        # 面板样式（主题系统 / 位置 / 紧凑模式）
-├── emoji-data.js      # Emoji 数据集
 ├── options.html       # 设置页
 ├── options.js         # 设置页逻辑
 ├── icons/             # 扩展图标（小狗头像，16/32/48/128）
@@ -95,7 +86,7 @@ gofun/
 
 ## 设置
 
-面板内输入 `/opt` 打开设置页，可配置：主题、紧凑模式、面板位置、历史记录天数、默认天气城市、RSS 订阅源、ICS 日历订阅、自定义搜索引擎、AI 服务商与 API Key。所有设置存 `chrome.storage.sync`，跨设备同步；API Key 仅存本地浏览器，不上传任何服务器。
+面板内输入 `/opt` 打开设置页，可配置：主题、紧凑模式、面板位置、历史记录天数。所有设置存 `chrome.storage.sync`，跨设备同步。
 
 ## 自定义命令
 
