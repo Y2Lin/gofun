@@ -273,6 +273,12 @@
   min-height: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--qp-scroll) transparent;
+  overscroll-behavior: contain;
+  transition: opacity 0.12s ease;
+}
+/* 搜索请求进行中：旧结果半透明提示更新中 */
+#quick-palette-results.qp-searching {
+  opacity: 0.55;
 }
 #quick-palette-results::-webkit-scrollbar {
   width: 8px;
@@ -332,6 +338,10 @@
   color: var(--qp-faint);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+/* 首个分组缩小顶部留白 */
+.qp-group:first-child .qp-group-label {
+  padding-top: 6px;
 }
 
 /* ========= 条目 ========= */

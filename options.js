@@ -88,6 +88,9 @@ function renderThemeGrid() {
 }
 
 /* ========= 回填表单 ========= */
+const VALID_POSITIONS = ['center', 'top', 'bottom', 'notch', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
+const VALID_HISTORY_DAYS = [0, 1, 7, 30, 90, 365];
+
 function fillForm(settings) {
   selectedTheme = THEMES.some((t) => t.value === settings.theme)
     ? settings.theme
@@ -95,8 +98,14 @@ function fillForm(settings) {
   renderThemeGrid();
 
   els.compact.checked = Boolean(settings.compact);
-  els.position.value = settings.position;
-  els.historyDays.value = String(settings.historyDays);
+  // 存储值非法（旧版本配置/损坏数据）时回退默认，避免 select 显示空白
+  els.position.value = VALID_POSITIONS.includes(settings.position)
+    ? settings.position
+    : DEFAULTS.position;
+  const days = parseInt(settings.historyDays, 10);
+  els.historyDays.value = VALID_HISTORY_DAYS.includes(days)
+    ? String(days)
+    : String(DEFAULTS.historyDays);
 }
 
 /* ========= 收集表单 ========= */

@@ -27,6 +27,7 @@
   let currentSettings = null;
   let activeCategory = 'all'; // 当前激活的分类 tab
   let categoryByClick = false; // 标记分类是否由点击/Tab 切换（用于隐藏 scope 标签）
+  let composing = false; // IME 组合输入中（拼音未上屏时不触发搜索/快捷键）
 
   const ICONS = {
     tab: '<svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 6V4h6v2" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
@@ -114,7 +115,7 @@
     { id:'cmd.viewsource',   type:'command', title:'查看网页源代码',   subtitle:'在新标签页打开源代码',       icon:'code',        alias:['/src'] },
     { id:'cmd.screenshot',   type:'command', title:'截图当前页面',     subtitle:'截取可见区域保存为 PNG',     icon:'camera',      alias:['/ss'] },
     { id:'cmd.screenshotarea', type:'command', title:'区域截图',       subtitle:'拖动框选区域保存为 PNG',     icon:'crop',        alias:['/ssa'], client:true },
-    { id:'cmd.colorpicker',  type:'command', title:'屏幕取色器',       subtitle:'取页面任意颜色，复制 HEX',   icon:'dropper',     alias:['/pick'], client:true },
+    { id:'cmd.colorpicker',  type:'command', title:'屏幕取色器',       subtitle:'取页面任意颜色，复制 HEX / RGB', icon:'dropper', alias:['/pick'], client:true },
     { id:'cmd.ruler',        type:'command', title:'像素尺子',         subtitle:'拖拽测量页面尺寸与间距',     icon:'ruler',       alias:['/ruler'], client:true },
     { id:'cmd.copyurl',      type:'command', title:'复制当前页网址',   subtitle:'复制当前标签页 URL',         icon:'link',        alias:['/cu'],  client:true },
     { id:'cmd.copytitle',    type:'command', title:'复制当前页标题',   subtitle:'复制当前标签页标题',         icon:'copy',        alias:['/ct'],  client:true },
@@ -184,8 +185,8 @@
       if (short && trimmed === short)               return '';
     }
     if (trimmed.startsWith('/')) {
-      const rest = trimmed.slice(1);
-      return rest.includes(' ') ? rest.slice(rest.indexOf(' ') + 1).trim() : '';
+      // 未知斜杠命令（如 /foo bar）：整个剩余部分都是查询词，与 background parseQuery 保持一致
+      return trimmed.slice(1).trim();
     }
     return trimmed;
   }
@@ -255,7 +256,8 @@
   function faviconHtml(item) {
     const host = safeHostname(item.url);
     if (!host) return null;
-    return `<img class="qp-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'qp-favicon-fallback',textContent:''}))" alt="" />`;
+    // onerror 在 renderResults 里统一用 addEventListener 绑定，避免内联事件被页面 CSP 拦截
+    return `<img class="qp-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32" decoding="async" alt="" />`;
   }
 
   function getIconHtml(item) {
@@ -327,7 +329,7 @@
     input = document.createElement('input');
     input.id = 'quick-palette-input';
     input.type = 'text';
-    input.placeholder = 'Search tabs · :b bookmarks · :h history · :d downloads…';
+    input.placeholder = '搜索标签页、历史、书签或输入命令…';
     input.autocomplete = 'off';
     input.spellcheck = false;
 
@@ -392,6 +394,14 @@
     });
 
     input.addEventListener('input', handleInput);
+    // IME 组合输入：拼音过程中不触发搜索，compositionend 后统一搜索
+    input.addEventListener('compositionstart', () => { composing = true; });
+    input.addEventListener('compositionend', () => { composing = false; handleInput(null); });
+
+    // 面板打开时阻止滚轮穿透滚动背景页面（结果列表自身正常滚动）
+    overlay.addEventListener('wheel', (e) => {
+      if (!resultsEl || !resultsEl.contains(e.target)) e.preventDefault();
+    }, { passive: false });
 
     // 应用保存的主题/位置/紧凑设置
     if (currentSettings) applySettings(currentSettings);
@@ -467,6 +477,8 @@
   }
 
   function handleInput(e) {
+    // IME 组合中（拼音未上屏）不搜索，等 compositionend 统一触发
+    if (composing) return;
     const query = input.value;
     lastQuery = query;
     // 用户手动输入时，不再按"点击分类"处理 scope 标签的显隐
@@ -481,10 +493,9 @@
     }, SEARCH_DEBOUNCE);
   }
 
-  // 延迟显示 loading：如果 LOADING_DELAY ms 内结果已返回，就不显示"搜索中"，避免闪烁
+  // 延迟显示 loading：仅当没有旧结果可展示时才显示"搜索中"，避免闪烁
   function scheduleLoading() {
     clearTimeout(loadingTimeout);
-    if (resultsEl) resultsEl.innerHTML = '';
     loadingTimeout = setTimeout(() => {
       if (resultsEl && !resultsEl.children.length) {
         showLoading();
@@ -506,6 +517,8 @@
   // 全局导航：面板可见时任何地方按下导航键都生效
   function handleGlobalNav(e) {
     if (!isVisible) return;
+    // IME 组合输入中不拦截按键（Enter/方向键属于候选词操作）
+    if (e.isComposing || e.keyCode === 229) return;
 
     // Ctrl/Cmd+W：关闭选中的标签页（对标 TabCmdr 的 Close tab）
     if ((e.ctrlKey || e.metaKey) && (e.key === 'w' || e.key === 'W')) {
@@ -577,10 +590,19 @@
         // Alt+Enter：对标签页结果执行"关闭"（对标 TabCmdr 对任意搜索结果直接操作）
         executeSelected(e.altKey ? 'close' : null);
         break;
-      case 'Escape':
+      case 'Escape': {
         e.preventDefault();
-        closePalette();
+        // 有查询内容时先清空（保留分类 scope），再按一次 Esc 才关闭面板
+        const cat = CATEGORIES.find(c => c.id === activeCategory);
+        const base = (categoryByClick && cat && cat.scope) ? cat.scope : '';
+        if (input && input.value && input.value !== base) {
+          input.value = base;
+          handleInput(null);
+        } else {
+          closePalette();
+        }
         break;
+      }
       case 'Tab':
         e.preventDefault();
         // Tab / Shift+Tab 在分类 tab 间循环切换（对标 TabCmdr 的 Filter）
@@ -649,8 +671,9 @@
     renderResults(results);
 
     // Phase 2（~1ms）：从 storage 读取缓存的标签页（无需 SW，极快）
-    chrome.storage.local.get('cachedTabs', ({ cachedTabs }) => {
-      if (!isVisible) return;
+    chrome.storage.local.get('cachedTabs', (data) => {
+      if (chrome.runtime.lastError || !isVisible) return;
+      const cachedTabs = data && data.cachedTabs;
       if (cachedTabs && cachedTabs.length > 0) {
         results = [...cachedTabs.slice(0, 12), ...COMMAND_SNAPSHOT.slice(0, 8)];
         selectedIndex = 0;
@@ -686,10 +709,13 @@
   function performSearch(query, keepSelection) {
     if (!isVisible) return;
     const mySeq = ++searchSeq;
+    // 搜索期间旧结果半透明提示"更新中"，保留旧结果避免闪烁
+    if (resultsEl) resultsEl.classList.add('qp-searching');
 
     chrome.runtime.sendMessage({ type: 'SEARCH', query }, (response) => {
       if (!isVisible || mySeq !== searchSeq) return;
       cancelLoading();
+      if (resultsEl) resultsEl.classList.remove('qp-searching');
       if (chrome.runtime.lastError) {
         console.error('Search error:', chrome.runtime.lastError.message);
         return;
@@ -714,9 +740,9 @@
     performSearch(input.value, true);
   }
 
-  function renderResults(items, highlightQuery) {
+  function renderResults(items) {
     if (!resultsEl) return;
-    const q = highlightQuery != null ? highlightQuery : stripScopePrefix(lastQuery);
+    const q = stripScopePrefix(lastQuery);
 
     if (items.length === 0) {
       resultsEl.innerHTML = '<div id="quick-palette-empty">未找到结果</div>';
@@ -812,6 +838,16 @@
 
       resultsEl.appendChild(groupEl);
     }
+
+    // favicon 加载失败时替换为占位色块
+    // （不用内联 onerror 属性——严格 CSP 的站点会拦截内联事件处理器）
+    resultsEl.querySelectorAll('img.qp-favicon').forEach(img => {
+      img.addEventListener('error', () => {
+        const span = document.createElement('span');
+        span.className = 'qp-favicon-fallback';
+        img.replaceWith(span);
+      }, { once: true });
+    });
   }
 
   // Tab 行悬停操作：copylink 本地处理，其余交给 background 的 tabAction
@@ -1130,35 +1166,62 @@
   }
 
   // 二维码弹层（使用 qrserver 公共 API 生成图片）
+  // 用 DOM API 构建并绑定 error，避免内联 onerror 被严格 CSP 的站点拦截
   function showQrOverlay(url) {
     const old = document.getElementById('gofun-qr-overlay');
     if (old) old.remove();
     const qr = document.createElement('div');
     qr.id = 'gofun-qr-overlay';
-    qr.innerHTML = `
-      <div id="gofun-qr-card">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(url)}" alt="QR" width="220" height="220"
-             onerror="this.outerHTML='<div id=&quot;gofun-qr-error&quot;>二维码加载失败（网络受限）</div>'" />
-        <div id="gofun-qr-url">${escapeHtml(url.length > 48 ? url.slice(0, 48) + '…' : url)}</div>
-        <div id="gofun-qr-tip">点击任意处关闭</div>
-      </div>
-    `;
+
+    const card = document.createElement('div');
+    card.id = 'gofun-qr-card';
+
+    const img = document.createElement('img');
+    img.alt = 'QR';
+    img.width = 220;
+    img.height = 220;
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=' + encodeURIComponent(url);
+    img.addEventListener('error', () => {
+      const err = document.createElement('div');
+      err.id = 'gofun-qr-error';
+      err.textContent = '二维码加载失败（网络受限）';
+      img.replaceWith(err);
+    });
+
+    const urlEl = document.createElement('div');
+    urlEl.id = 'gofun-qr-url';
+    urlEl.textContent = url.length > 48 ? url.slice(0, 48) + '…' : url;
+
+    const tip = document.createElement('div');
+    tip.id = 'gofun-qr-tip';
+    tip.textContent = '点击任意处关闭';
+
+    card.appendChild(img);
+    card.appendChild(urlEl);
+    card.appendChild(tip);
+    qr.appendChild(card);
     document.body.appendChild(qr);
     requestAnimationFrame(() => qr.classList.add('qp-visible'));
-    qr.addEventListener('click', () => qr.remove());
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        qr.remove();
-        window.removeEventListener('keydown', onKey, true);
-      }
+
+    // 点击或 Esc 关闭时都要解绑 keydown，避免监听器泄漏
+    const dismiss = () => {
+      qr.remove();
+      window.removeEventListener('keydown', onKey, true);
     };
+    const onKey = (e) => {
+      if (e.key === 'Escape') dismiss();
+    };
+    qr.addEventListener('click', dismiss);
     window.addEventListener('keydown', onKey, true);
   }
 
   function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // 监听来自 background 的打开指令
@@ -1179,6 +1242,8 @@
   // 全局快捷键 & 面板导航
   // 挂在 window（而非 document）上，确保在 capture 阶段最先执行
   window.addEventListener('keydown', (e) => {
+    // IME 组合输入中不处理快捷键（避免拼音过程误触面板开关）
+    if (e.isComposing || e.keyCode === 229) return;
     const isCtrl = e.ctrlKey || e.metaKey;
     const isShift = e.shiftKey;
     const isP = e.key && e.key.toLowerCase() === 'p';

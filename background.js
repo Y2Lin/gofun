@@ -329,7 +329,7 @@ const COMMANDS = [
 
   // ---- 客户端命令（由 content.js 本地执行）----
   { id: 'cmd.screenshotarea', type: 'command', title: '区域截图', subtitle: '拖动框选页面区域，保存为 PNG', icon: 'crop', alias: ['/ssa'], keywords: ['screenshot', 'area', 'region', 'crop', 'snip'], client: true },
-  { id: 'cmd.colorpicker', type: 'command', title: '屏幕取色器', subtitle: '从页面任意位置取色，复制 HEX/RGB/HSL', icon: 'dropper', alias: ['/pick'], keywords: ['color', 'picker', 'eyedropper', 'dropper'], client: true },
+  { id: 'cmd.colorpicker', type: 'command', title: '屏幕取色器', subtitle: '从页面任意位置取色，复制 HEX / RGB', icon: 'dropper', alias: ['/pick'], keywords: ['color', 'picker', 'eyedropper', 'dropper'], client: true },
   { id: 'cmd.ruler', type: 'command', title: '像素尺子', subtitle: '在页面上拖拽测量元素间距与尺寸', icon: 'ruler', alias: ['/ruler'], keywords: ['ruler', 'measure', 'pixel', 'size', 'inspect'], client: true },
   { id: 'cmd.copyurl',   type: 'command', title: '复制当前页网址',       subtitle: '复制当前标签页的 URL 到剪贴板',      icon: 'link',      alias: ['/cu'],  keywords: ['copy', 'url', 'link'],      client: true },
   { id: 'cmd.copytitle', type: 'command', title: '复制当前页标题',       subtitle: '复制当前标签页的标题到剪贴板',       icon: 'copy',      alias: ['/ct'],  keywords: ['copy', 'title'],            client: true },
@@ -551,7 +551,7 @@ async function searchBookmarks(query, limit) {
     .filter(b => !query || b.score > 0)
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      return (a.dateAdded || 0) - (b.dateAdded || 0);
+      return (b.dateAdded || 0) - (a.dateAdded || 0); // 新书签优先
     });
 
   return scored.slice(0, limit).map(b => ({
@@ -675,6 +675,21 @@ function parseQuery(rawQuery) {
   return { scope: 'all', query: trimmed };
 }
 
+// 按组顺序合并去重（key：tab 用 tabId，其余用 url/id）
+function mergeResults(groups) {
+  const seen = new Set();
+  const results = [];
+  for (const items of groups) {
+    for (const item of items) {
+      const key = item.type === 'tab' ? `tab-${item.tabId}` : item.url || item.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(item);
+    }
+  }
+  return results;
+}
+
 // ========= 综合搜索 =========
 async function performSearch(rawQuery) {
   const { scope, query } = parseQuery(rawQuery);
@@ -695,19 +710,7 @@ async function performSearch(rawQuery) {
             searchTabs(query, 12),
             searchCommands(query, 8)
           ]);
-          const seen = new Set();
-          const results = [];
-          const add = (items) => {
-            for (const item of items) {
-              const key = item.type === 'tab' ? `tab-${item.tabId}` : item.url || item.id;
-              if (seen.has(key)) continue;
-              seen.add(key);
-              results.push(item);
-            }
-          };
-          add(tabs);
-          add(commands);
-          return results.slice(0, limit);
+          return mergeResults([tabs, commands]).slice(0, limit);
         }
 
         const openUrl = tryOpenUrl(query);
@@ -721,31 +724,17 @@ async function performSearch(rawQuery) {
           searchDownloads(query, 4)
         ]);
 
-        const seen = new Set();
-        const results = [];
-        const add = (items) => {
-          for (const item of items) {
-            const key = item.type === 'tab' ? `tab-${item.tabId}` : item.url || item.id;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            results.push(item);
-          }
-        };
-
+        const groups = [tabs, commands, closed, downloads, history, bookmarks];
         if (openUrl) {
-          results.push({
+          groups.unshift([{
             id: `openurl-${openUrl.url}`, type: 'openurl',
             title: openUrl.title, subtitle: openUrl.url, url: openUrl.url, icon: 'link'
-          });
+          }]);
         }
-        add(tabs);
-        add(commands);
-        add(closed);
-        add(downloads);
-        add(history);
-        add(bookmarks);
+        const results = mergeResults(groups);
 
-        // 兜底：网页搜索
+        // 兜底：网页搜索固定占最后一格，保证始终可见（否则会被 20 条上限截掉）
+        results.length = Math.min(results.length, limit - 1);
         results.push({
           id: `websearch-${query}`, type: 'websearch',
           title: `在 Google 搜索"${query}"`,
@@ -754,7 +743,7 @@ async function performSearch(rawQuery) {
           icon: 'search'
         });
 
-        return results.slice(0, limit);
+        return results;
       }
     }
   } catch (err) {

@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GoFun - Go & Find 命令面板",
-  "version": "1.2.0",
+  "version": "1.2.1",
+  "minimum_chrome_version": "105",
   "description": "GoFun（谐音 Go & Find）—— 使用快捷键呼出命令面板：跨窗口搜索 Tab/历史/书签/最近关闭/下载，执行 51 条命令，支持区域截图、屏幕取色器、像素尺子、页面媒体控制、二维码等页面工具。",
   "permissions": [
     "tabs",
