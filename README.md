@@ -92,6 +92,41 @@ gofun/
 
 如需添加更多内置命令，请编辑 `background.js` 中的 `COMMANDS` 数组（含 `action`），并在 `content.js` 的 `COMMAND_SNAPSHOT` 中添加对应快照项（不含 `action`）。
 
+## 使用技巧
+
+- **快速切换标签页**：直接输入网站名称或标题关键词，回车即跳转到已打开的标签页（跨窗口搜索）
+- **范围前缀提速**：知道要找的内容类型时用前缀缩小范围，如 `/h github` 只搜历史、`/b react` 只搜书签
+- **冒号前缀**：习惯 TabCmdr 风格的用户可用 `:t` `:b` `:cl` `:h` 等冒号前缀，效果等同于 `/t` `/b` `/cl` `/h`
+- **命令缩写**：51 条内置命令都有斜杠缩写，常用的有：
+  - `/n` 新建标签页、`/co` 关闭其他标签页、`/dedup` 关闭重复标签页
+  - `/ss` 截图、`/ssa` 区域截图、`/pick` 屏幕取色、`/ruler` 像素尺子
+  - `/cs` 复制选中文本、`/pp` 播放/暂停媒体、`/mm` 媒体静音
+  - `/opt` 打开设置页、`/ext` 管理扩展、`/dlp` 下载记录
+- **Tab 行操作**：鼠标悬停在 Tab 结果上，右侧会出现操作按钮（关闭/静音/固定/复制/移到新窗口/分组等）
+- **Alt+Enter**：对选中的 Tab 结果按 Alt+Enter 可直接关闭该标签页，面板保持打开
+- **分类 Tab 切换**：按 `Tab` / `Shift+Tab` 可在顶部分类间循环切换，快速过滤搜索范围
+- **键盘导航**：`↑↓` 选择、`Enter` 打开、`Esc` 关闭、`PgUp/PgDn` 翻页、`Ctrl+Home/End` 跳首尾
+
+## 常见问题
+
+**Q: 为什么在 chrome:// 页面按 Ctrl+P 没反应？**
+A: Chrome 限制扩展不能向内置页面注入脚本。`Ctrl+Shift+P` 是官方注册的快捷键，所有页面都能用；`Ctrl+P` 只在普通网页生效。在 chrome:// 页面按 `Ctrl+Shift+P` 或点扩展图标即可。
+
+**Q: 为什么空查询时看不到历史和书签？**
+A: 为了保证面板秒开，空查询只加载标签页和命令。输入任意关键词后，历史和书签会自动加入搜索结果。
+
+**Q: favicon 图标不显示怎么办？**
+A: 默认使用 Google 的 favicon 服务，国内网络可能加载失败。不影响功能，只是图标显示为占位色块。
+
+**Q: 怎么修改快捷键？**
+A: 在浏览器地址栏输入 `chrome://extensions/shortcuts`，找到 GoFun 即可修改 `Ctrl+Shift+P` 快捷键。`Ctrl+P` 和 `Ctrl+K` 是页面级拦截，暂不支持自定义。
+
+**Q: 设置会在多设备间同步吗？**
+A: 会的。主题、位置、紧凑模式、历史天数等设置存在 `chrome.storage.sync`，登录同一 Google 账号的设备会自动同步。
+
+**Q: 面板位置能改吗？**
+A: 可以。打开设置页（输入 `/opt`），可选择居中、靠上、靠下、刘海贴顶、四角等 8 种位置。
+
 ## 注意事项
 
 - 扩展需要 `tabs`、`history`、`bookmarks`、`scripting` 等权限才能读取对应数据和在受限页面动态注入脚本。
@@ -99,3 +134,27 @@ gofun/
 - Chrome 内置页面（如 `chrome://extensions`、`edge://`）无法注入内容脚本：在这些页面按快捷键 / 点图标，会自动跳转新标签页并打开面板。
 - 历史记录 / 书签的数据量可能非常大；默认在空查询时不拉取历史和书签以确保秒开。输入关键字后会立即加入搜索。
 - 取色器依赖 EyeDropper API（Chrome 95+）；区域截图依赖 `activeTab` 权限，仅能截取当前可视区域。
+
+## 测试
+
+项目包含单元测试（87 条）与 Playwright E2E 测试（21 条），共 108 条。
+
+```bash
+# 安装依赖（仅测试所需）
+npm install
+
+# 单元测试：基于 Node 内置 test runner，零浏览器依赖，~150ms
+npm test
+
+# E2E 测试：真实 Chromium 加载扩展，验证面板交互（首次运行自动下载浏览器，约 5 分钟）
+npm run test:e2e
+
+# 全部一起跑
+npm run test:all
+```
+
+**单元测试**覆盖 `background.js` / `content.js` 中的纯函数：打分算法（14 级）、scope 解析（先长后短）、冒号前缀归一化、HTML 转义、匹配高亮、分类推断、分组标签，以及双端命令一致性（51 条命令 id / client 标记）、manifest 完整性、文档数字同步。
+
+**E2E 测试**在真实 Chromium 中加载扩展，覆盖：面板开关/toggle、首屏渲染、7 个分类 Tab 顺序、搜索/空状态/缩写匹配、匹配高亮、5 种 scope 切换、Tab 点击切换作用域、ArrowUp/Down 选中态、Tab/Shift+Tab 分类切换、命令执行+新标签页、options 页加载、执行后面板关闭。
+
+> 由于 Playwright 自动化 Chromium 在 Windows 下不会自动注入 content script，E2E 通过 `page.addScriptTag` 手动注入 `content.js` + `palette.css`，并提供 mock `chrome.runtime` / `chrome.storage` 以驱动 UI 流程。详见 [`AGENTS.md`](AGENTS.md) 的「测试体系」章节。

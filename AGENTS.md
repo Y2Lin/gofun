@@ -98,6 +98,130 @@ e:\Dev\gofun\
 
 > **重要**：`OPEN_PALETTE` 消息在面板已可见时会**关闭面板**（toggle 行为）。这是为了防止 content keydown 和 chrome.commands 双重触发导致的开关竞态。
 
+### 消息协议详解
+
+每条消息的完整生命周期和边界条件：
+
+**PING** — SW 预热
+- 触发时机：content script 注入后立即发送（`injectContentScript` 末尾）
+- 目的：用户按快捷键前 SW 通常已活跃，消除首次打开面板的冷启动延迟
+- 容错：不检查响应，失败静默（SW 可能还没注册）
+
+**SEARCH** — 核心搜索
+- 触发：content.js `performSearch()` 60ms debounce 后发送
+- 响应：`{ results: ResultItem[] }`，每项已剥离 `action`/`keywords` 等内部字段
+- 竞态防护：content 端维护 `searchSeq` 自增序号，过期响应（seq < 当前）直接丢弃
+- 错误处理：SW 异常返回空数组，content 显示"未找到结果"
+
+**EXECUTE** — 执行选中项
+- 触发：Enter / 点击结果项 / Tab 行操作按钮 / Alt+Enter
+- `tabAction` 字段：对 tab 类型的修饰操作（close/pin/mute/reload/duplicate/move/group/popout）
+- `refresh` 响应：close/pin 等 Tab 行操作后返回 `{ refresh: true }`，content 调用 `refreshResults()` 重搜并保留选中项位置
+- client 命令不到 background：content.js 直接执行（复制/滚动/打印/全屏/二维码/媒体控制）
+
+**GET_TAB_CACHE** — 秒显 Tab 列表
+- 触发：`openPalette()` 同步阶段
+- 实现：直接读 `chrome.storage.local.cachedTabs`，不经过 SW
+- 目的：Phase 2 渐进渲染，SW 冷启动时也能秒出 Tab 列表
+
+**SCREENSHOT_AREA** — 区域截图
+- 触发：content.js 选框结束后发送矩形坐标
+- 流程：`captureVisibleTab` 截全屏 → `createImageBitmap` 裁剪 → canvas 转 dataURL → `chrome.downloads.download` 下载
+- 限制：只能截当前激活窗口的可视区域，chrome:// 页面失败
+
+**OPEN_PALETTE** — 打开/切换面板
+- 触发：chrome.commands 快捷键 / 扩展图标点击
+- 方向：background → 当前激活 tab 的 content script
+- toggle 逻辑：content 收到时若面板已开则关闭，防止双重触发竞态
+- chrome:// 页面 fallback：检测到受限协议时开新标签页再注入
+
+---
+
+## 数据流与渲染流程
+
+### 面板打开的完整时序（三阶段渐进渲染）
+
+```
+用户按 Ctrl+P / Ctrl+Shift+P
+        │
+        ▼
+  content.js keydown 捕获
+        │
+        ├─ Phase 1 (0ms, 同步)：渲染 COMMAND_SNAPSHOT（51 条命令）
+        │     · createOverlay() 首次创建 DOM
+        │     · renderResults(COMMAND_SNAPSHOT, '')
+        │     · 输入框聚焦，面板入场动画
+        │
+        ├─ Phase 2 (~1ms)：读 chrome.storage.local.cachedTabs
+        │     · GET_TAB_CACHE 直接读存储，不依赖 SW
+        │     · 合并命令 + 缓存 Tab，覆盖 Phase 1 结果
+        │     · 用户此时已能看到 Tab 列表
+        │
+        └─ Phase 3 (~50-200ms)：发 SEARCH 消息给 SW
+              · SW 调 chrome.tabs.query 拿最新数据
+              · 按打分排序后返回
+              · content 收到后覆盖 Phase 2 缓存结果
+              · 若 120ms 内返回则不显示 loading
+```
+
+### 搜索输入的数据流
+
+```
+用户输入字符
+    │
+    ▼
+input event → debounce(60ms) → scheduleLoading()
+    │                              │
+    │                              └─ 不清空现有结果，120ms 后仍无新结果才显示 loading
+    ▼
+performSearch(query)
+    │
+    ├─ searchSeq++（竞态序号）
+    ├─ 解析 scope（/tabs /h :t 等前缀）
+    ├─ chrome.runtime.sendMessage({ type: 'SEARCH', query })
+    │
+    ▼
+background.js performSearch()
+    │
+    ├─ parseQuery() 解析 scope
+    ├─ 空查询：Promise.all([tabs, commands]) → mergeUniqueResults
+    ├─ 有查询：Promise.all([tabs, commands, history, bookmarks, closed, downloads])
+    │           → mergeUniqueResults（按 GROUP_ORDER 去重合并）
+    │           → 加 openurl / websearch 兜底
+    └─ 返回 results（剥离 action/keywords）
+    │
+    ▼
+content.js 收到响应
+    │
+    ├─ 检查 searchSeq，过期则丢弃
+    ├─ cancelLoading()
+    ├─ results = resp.results
+    ├─ selectedIndex = 0（重置选中）
+    └─ renderResults(results, query)
+           │
+           ├─ 按 type 分组（GROUP_ORDER 顺序）
+           ├─ 每项 highlight() 高亮匹配字符
+           ├─ Map 记录 item→index（O(1) 查找）
+           └─ 事件委托（click / mouseover 统一挂 resultsEl）
+```
+
+### 渲染流程细节
+
+`renderResults(items, highlightQuery)` 执行步骤：
+1. 空结果 → 显示"未找到结果"占位，return
+2. 建 `grouped` 对象按 type 分组 + `indexOfItem` Map 存 item→index 映射
+3. 清空 `resultsEl.innerHTML`
+4. 按 `GROUP_ORDER` 顺序遍历分组：
+   - 创建 `.qp-group` 容器 + `.qp-group-label` 分类名
+   - 遍历组内每项：
+     - 创建 `.qp-item`，设 `data-index`，选中项加 `.qp-selected`
+     - 拼 icon / title（含 badge）/ subtitle / 右侧操作区的 HTML 字符串
+     - `el.innerHTML = ...` 一次性写入
+     - append 到 groupEl
+5. groupEl append 到 resultsEl
+
+**选中态更新**（`updateSelectionClass`）：只移动 `.qp-selected` class，不重建 DOM，避免 mouseenter 与键盘导航的循环触发。
+
 ---
 
 ## 数据结构
@@ -304,16 +428,20 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 
 ### 视觉风格
 
-- **Apple Spotlight 纯净风**：纯白毛玻璃 `rgba(255,255,255,0.92)` + `blur(40px) saturate(180%)`，1px 极淡描边，单层阴影 `0 24px 80px rgba(0,0,0,0.16)`
+- **Apple Spotlight 纯净风**：纯白毛玻璃 `rgba(255,255,255,0.92)` + `blur(40px) saturate(180%)`，1px 极淡描边，单层阴影 `0 24px 80px rgba(0,0,0,0.16)`，圆角 16px
 - **主色**：Apple 系统蓝 `#007aff`（浅色）/ `#0a84ff`（深色）
-- **选中态**：`rgba(0, 122, 255, 0.1)` 浅蓝半透明背景，文字保持深色不反白，图标变蓝
+- **选中态**：`rgba(0, 122, 255, 0.1)` 浅蓝半透明背景，文字保持深色不反白，图标变蓝；背景 0.12s 过渡
 - **hover 态**：`rgba(0, 0, 0, 0.04)` 极淡灰
-- **匹配高亮**：`#007aff` 蓝色文字 + `font-weight: 500`
+- **匹配高亮**：`#007aff` 蓝色文字 + `font-weight: 500`，选中态加粗到 600
+- **图标**：命令类 SVG 统一 `stroke-width:1.8` + `stroke-linecap/join: round`，选中态 `color` 过渡到主色；搜索图标 20px/1.8
+- **分类 Tab 激活态**：主色文字 + `--qp-accent-soft` 浅蓝底（与 hover 的灰底区分），一眼可辨当前作用域
+- **Tab 行工具栏**：默认整行淡出（opacity 0→1 过渡），hover/选中时淡入；按钮 `:active` 有 scale(0.9) 按压反馈，关闭按钮 hover 变红；命令/历史等非 Tab 行右侧快捷键始终可见
+- **按钮按压反馈**：ESC、设置、Tab 操作按钮均有 `:active { transform: scale(0.9~0.95) }`
 - **深色模式**：`rgba(40, 40, 42, 0.92)` 柔和深灰（不用纯黑），选中态 `rgba(10, 132, 255, 0.18)`
-- **响应式**：`@media (max-width: 560px)` 缩小间距和字号
+- **响应式**：`@media (max-width: 560px)` 缩小间距和字号，窄屏隐藏 move/group/popout 三个低频 Tab 操作按钮，footer 只保留前 3 个提示
 - **动画**：入场 `translateY(-8px) scale(0.99)` → 0，200ms `cubic-bezier(0.22, 1, 0.36, 1)`
 - **入场 class 时机**：先 appendChild 到 DOM，强制 `overlay.offsetHeight` 回流，再加 `.qp-visible` class，确保 transition 生效
-- **滚动条**：8px 宽，`background-clip: content-box` 留白
+- **滚动条**：8px 宽，`background-clip: content-box` 留白，hover 时加深
 
 ---
 
@@ -360,3 +488,69 @@ background 和 content **各自维护一份同结构定义**，必须保持同�
 - **某页面快捷键无效**：① 确认是 http(s) 页面（chrome:// 不支持 Ctrl+P）② 刷新该页面（扩展重载后旧页面可能没有 content script）③ 检查 F12 Console 是否有 __GOFUN_INJECTED__ 相关错误
 - **设置页**：`chrome://extensions/` → GoFun → 详情 → 扩展程序选项，或面板内执行 `/opt`
 - **主题预览**：设置页点主题卡片即时生效（storage.onChanged 实时同步到已打开的面板）
+
+---
+
+## 测试体系
+
+### 目录结构
+
+```
+tests/
+├── unit/                    # 单元测试（Node 内置 test runner，零浏览器依赖）
+│   ├── extract.js           # 从 bg/ct 源码提取纯函数的工具（VM 沙箱 + 正则切片）
+│   ├── background.test.js   # background 纯函数：safeHostname / fuzzyMatch / score* / formatSize / tryOpenUrl
+│   ├── content.test.js      # content 纯函数：parseScope / stripScope / escapeHtml / highlight / categoryFromQuery / getGroupLabel
+│   ├── scope.test.js        # scope 解析 + 冒号前缀归一化 + 双端 SCOPE/COLON 一致性
+│   └── sync.test.js         # 双端一致性：51 条命令 id/client 标记 / manifest 权限 / 文档数字
+└── e2e/                     # Playwright E2E 测试（真实 Chromium + 扩展加载）
+    ├── helpers.js           # launchExtension / injectContentScript / openPalette 等辅助函数
+    ├── palette.spec.js      # 面板交互用例（基础/搜索/范围前缀/键盘导航/执行，共 21 条）
+    └── fixture.html         # 本地静态测试页（沙箱无外网）
+```
+
+### 运行命令
+
+```bash
+npm test          # 单元测试（~150ms）
+npm run test:e2e  # E2E 测试（~15s，需下载 Chromium）
+npm run test:all  # 全部
+```
+
+### 单元测试原理
+
+扩展代码是 IIFE 且依赖 `chrome.*` API / DOM，无法直接 `require`。
+[`tests/unit/extract.js`](file:///E:/Dev/gofun/tests/unit/extract.js) 用以下方法解耦：
+
+1. **正则定位**：`findDecl(src, name)` 找到 `const NAME` / `function name` 声明位置
+2. **大括号配平**：`extractBalanced()` 从声明开始按 `{}` / `[]` 配平提取完整代码块
+3. **const → var**：VM 沙箱中 `const`/`let` 不会挂到全局对象，替换为 `var` 使 sandbox 可访问
+4. **注入桩**：`document`（极简 mock，支持 `textContent`/`innerHTML` 转义）、`URL`（Node 原生 URL 构造函数）
+5. **VM 执行**：`vm.runInContext(code, sandbox)` 在隔离上下文执行
+
+跨 VM 对象比较用 `JSON.stringify(actual) === JSON.stringify(expected)` 而非 `deepStrictEqual`（原型链不同会判不等）。
+
+### E2E 测试原理
+
+**为什么手动注入 content script？** Playwright/Chromium 在 Windows 自动化模式下，即使通过 `--load-extension` 加载了扩展，也不会自动向 http(s) 页面注入 content script（与真实用户使用行为不同）。因此 E2E 采用以下策略：
+
+1. **启动扩展**：`chromium.launchPersistentContext` + `--load-extension`，确保 Service Worker 注册、扩展 ID 可用
+2. **本地 fixture**：`http.createServer` 提供静态 `fixture.html`（沙箱无外网）
+3. **手动注入**：`page.addStyleTag({ path: 'palette.css' })` + `page.addScriptTag({ path: 'content.js' })`
+4. **Mock chrome API**：注入前先写入 `window.chrome.runtime` / `window.chrome.storage` mock，模拟 SEARCH/EXECUTE/PING 消息响应
+5. **测试钩子**：`content.js` 末尾暴露 `window.__GOFUN_TEST__ = { openPalette, closePalette, isVisible }`，E2E 直接调用而非模拟快捷键（快捷键在自动化环境中不可靠）
+
+### 覆盖范围
+
+| 层级 | 用例数 | 覆盖内容 |
+|---|---|---|
+| 单元 | 87 | 打分（14 级）、scope 解析（先长后短）、冒号前缀归一化、HTML 转义、匹配高亮、分类推断、分组标签、双端命令一致性（51 条）、client 标记一致性、manifest 完整性、文档数字同步 |
+| E2E | 21 | 面板开关/toggle、首屏渲染、7 分类 Tab 顺序、搜索/空状态/缩写匹配、匹配高亮、输入同步、5 种 scope 切换、Tab 点击切换、ArrowUp/Down 选中态、Tab/Shift+Tab 分类切换、命令执行+新标签页、options 页加载、执行后面板关闭 |
+
+### 新增测试的约定
+
+- 单元测试文件名：`*.test.js`，放在 `tests/unit/`
+- E2E 测试文件名：`*.spec.js`，放在 `tests/e2e/`
+- 新增纯函数测试：在 `extract.js` 的 `loadBackgroundPure` / `loadContentPure` 中加一行 `extractByName(src, '函数名')`，再写对应 `.test.js`
+- 新增 E2E 用例：优先用 `page.evaluate(() => window.__GOFUN_TEST__...)` 驱动面板状态，避免依赖浏览器级快捷键
+- E2E mock 搜索数据在 `helpers.js` 的 `mockSearch()` 函数中维护
