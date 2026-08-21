@@ -380,6 +380,9 @@ const COMMANDS = [
   },
 ];
 
+// O(1) 命令查找表（executeItem 用）
+const COMMAND_MAP = new Map(COMMANDS.map(c => [c.id, c]));
+
 // 支持的范围前缀，含全称和缩写，按 "先长后短" 匹配，避免 /tabs 被 /t 抢先
 const SCOPE_PREFIXES = [
   { scope: 'tabs',      full: '/tabs',      short: '/t' },
@@ -410,6 +413,25 @@ function normalizeColonPrefix(trimmed) {
 }
 
 // ========= 工具函数 =========
+// 打分层级常量（数值越大优先级越高）
+const SCORE = {
+  ALIAS_EXACT: 1100,
+  KEYWORD_EXACT: 1050,
+  TITLE_EXACT: 1000,
+  ALIAS_PREFIX: 950,
+  KEYWORD_PREFIX: 920,
+  TITLE_PREFIX: 900,
+  QUERY_STARTS_WITH_ALIAS: 880,
+  TITLE_WORD_START: 850,
+  ALIAS_INCLUDES: 820,
+  KEYWORD_INCLUDES: 800,
+  TITLE_INCLUDES: 800,
+  URL_EXACT: 750,
+  URL_INCLUDES: 700,
+  TITLE_FUZZY: 500,
+  URL_FUZZY: 400,
+};
+
 function safeHostname(url) {
   try { return new URL(url).hostname; } catch (_) { return null; }
 }
@@ -431,41 +453,44 @@ function scoreResult(item, query) {
   const title = (item.title || '').toLowerCase();
   const url = (item.url || '').toLowerCase();
 
-  if (title === q) return 1000;
-  if (title.startsWith(q)) return 900;
-  if (title.includes(' ' + q)) return 850;
-  if (title.includes(q)) return 800;
-  if (url === q) return 750;
-  if (url.includes(q)) return 700;
-  if (fuzzyMatch(title, query)) return 500;
-  if (fuzzyMatch(url, query)) return 400;
+  if (title === q) return SCORE.TITLE_EXACT;
+  if (title.startsWith(q)) return SCORE.TITLE_PREFIX;
+  if (title.includes(' ' + q)) return SCORE.TITLE_WORD_START;
+  if (title.includes(q)) return SCORE.TITLE_INCLUDES;
+  if (url === q) return SCORE.URL_EXACT;
+  if (url.includes(q)) return SCORE.URL_INCLUDES;
+  if (fuzzyMatch(title, query)) return SCORE.TITLE_FUZZY;
+  if (fuzzyMatch(url, query)) return SCORE.URL_FUZZY;
   return 0;
 }
 
 // 针对"命令"场景的打分：alias + keywords + title/subtitle 综合匹配
+// 注意：必须遍历所有 alias / keyword 取最高分，不能遇到第一个匹配就返回
+// （否则多个 alias 时可能返回较低的匹配分）
 function scoreCommand(cmd, query) {
   const baseScore = scoreResult({ title: cmd.title, subtitle: cmd.subtitle }, query);
   if (!query) return baseScore;
   const q = query.toLowerCase();
+  let best = baseScore;
 
   const alias = cmd.alias || [];
   for (const a of alias) {
     const norm = a.toLowerCase().replace(/\s+/g, '').replace(/^\//, '');
-    if (norm === q) return Math.max(baseScore, 1100);
-    if (norm.startsWith(q)) return Math.max(baseScore, 950);
-    if (q.startsWith(norm)) return Math.max(baseScore, 880);
-    if (norm.includes(q)) return Math.max(baseScore, 820);
+    if (norm === q) { best = Math.max(best, SCORE.ALIAS_EXACT); continue; }
+    if (norm.startsWith(q)) { best = Math.max(best, SCORE.ALIAS_PREFIX); continue; }
+    if (q.startsWith(norm)) { best = Math.max(best, SCORE.QUERY_STARTS_WITH_ALIAS); continue; }
+    if (norm.includes(q)) { best = Math.max(best, SCORE.ALIAS_INCLUDES); }
   }
 
   const keywords = cmd.keywords || [];
   for (const kw of keywords) {
     const norm = kw.toLowerCase();
-    if (norm === q) return Math.max(baseScore, 1050);
-    if (norm.startsWith(q)) return Math.max(baseScore, 920);
-    if (norm.includes(q)) return Math.max(baseScore, 800);
+    if (norm === q) { best = Math.max(best, SCORE.KEYWORD_EXACT); continue; }
+    if (norm.startsWith(q)) { best = Math.max(best, SCORE.KEYWORD_PREFIX); continue; }
+    if (norm.includes(q)) { best = Math.max(best, SCORE.KEYWORD_INCLUDES); }
   }
 
-  return baseScore;
+  return best;
 }
 
 // ========= 搜索源 =========
@@ -676,6 +701,22 @@ function parseQuery(rawQuery) {
 }
 
 // ========= 综合搜索 =========
+// 按 GROUP_ORDER 合并多组结果并去重（tab 用 tabId，其余用 url 或 id）
+function mergeUniqueResults(groups, limit) {
+  const seen = new Set();
+  const results = [];
+  for (const items of groups) {
+    for (const item of items) {
+      const key = item.type === 'tab' ? `tab-${item.tabId}` : item.url || item.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(item);
+      if (results.length >= limit) return results;
+    }
+  }
+  return results;
+}
+
 async function performSearch(rawQuery) {
   const { scope, query } = parseQuery(rawQuery);
   const limit = DEFAULT_RESULTS_LIMIT;
@@ -695,19 +736,7 @@ async function performSearch(rawQuery) {
             searchTabs(query, 12),
             searchCommands(query, 8)
           ]);
-          const seen = new Set();
-          const results = [];
-          const add = (items) => {
-            for (const item of items) {
-              const key = item.type === 'tab' ? `tab-${item.tabId}` : item.url || item.id;
-              if (seen.has(key)) continue;
-              seen.add(key);
-              results.push(item);
-            }
-          };
-          add(tabs);
-          add(commands);
-          return results.slice(0, limit);
+          return mergeUniqueResults([tabs, commands], limit);
         }
 
         const openUrl = tryOpenUrl(query);
@@ -721,40 +750,22 @@ async function performSearch(rawQuery) {
           searchDownloads(query, 4)
         ]);
 
-        const seen = new Set();
-        const results = [];
-        const add = (items) => {
-          for (const item of items) {
-            const key = item.type === 'tab' ? `tab-${item.tabId}` : item.url || item.id;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            results.push(item);
-          }
-        };
-
-        if (openUrl) {
-          results.push({
-            id: `openurl-${openUrl.url}`, type: 'openurl',
-            title: openUrl.title, subtitle: openUrl.url, url: openUrl.url, icon: 'link'
-          });
-        }
-        add(tabs);
-        add(commands);
-        add(closed);
-        add(downloads);
-        add(history);
-        add(bookmarks);
-
-        // 兜底：网页搜索
-        results.push({
+        const prefix = openUrl ? [{
+          id: `openurl-${openUrl.url}`, type: 'openurl',
+          title: openUrl.title, subtitle: openUrl.url, url: openUrl.url, icon: 'link'
+        }] : [];
+        const suffix = [{
           id: `websearch-${query}`, type: 'websearch',
           title: `在 Google 搜索"${query}"`,
           subtitle: '使用默认搜索引擎查找',
           url: 'https://www.google.com/search?q=' + encodeURIComponent(query),
           icon: 'search'
-        });
+        }];
 
-        return results.slice(0, limit);
+        return mergeUniqueResults(
+          [prefix, tabs, commands, closed, downloads, history, bookmarks, suffix],
+          limit
+        );
       }
     }
   } catch (err) {
@@ -865,7 +876,7 @@ async function executeItem(item, tabAction) {
     }
 
     case 'command': {
-      const cmd = COMMANDS.find(c => c.id === item.id);
+      const cmd = COMMAND_MAP.get(item.id);
       if (cmd && cmd.action) {
         try {
           await cmd.action();

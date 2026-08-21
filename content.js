@@ -358,6 +358,31 @@
     resultsEl = document.createElement('div');
     resultsEl.id = 'quick-palette-results';
 
+    // 事件委托：结果列表的 click / mouseenter 统一处理，避免逐条绑定
+    resultsEl.addEventListener('click', (e) => {
+      const itemEl = e.target.closest('.qp-item');
+      if (!itemEl) return;
+      const idx = Number(itemEl.dataset.index);
+      const item = results[idx];
+      if (!item) return;
+      // 点击操作按钮时不触发整行的"切换标签页"
+      const actionBtn = e.target.closest('.qp-tab-action');
+      if (actionBtn) {
+        e.stopPropagation();
+        handleTabAction(item, actionBtn.dataset.action);
+        return;
+      }
+      executeItem(item);
+    });
+    resultsEl.addEventListener('mouseover', (e) => {
+      const itemEl = e.target.closest('.qp-item');
+      if (!itemEl) return;
+      const idx = Number(itemEl.dataset.index);
+      if (idx === selectedIndex || isNaN(idx)) return;
+      selectedIndex = idx;
+      updateSelectionClass();
+    });
+
     const footer = document.createElement('div');
     footer.id = 'quick-palette-footer';
     footer.innerHTML = `
@@ -392,6 +417,12 @@
     });
 
     input.addEventListener('input', handleInput);
+    // 输入框内 Ctrl+A 只选输入框内容，不冒泡到页面全选
+    input.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.stopPropagation();
+      }
+    });
 
     // 应用保存的主题/位置/紧凑设置
     if (currentSettings) applySettings(currentSettings);
@@ -484,7 +515,7 @@
   // 延迟显示 loading：如果 LOADING_DELAY ms 内结果已返回，就不显示"搜索中"，避免闪烁
   function scheduleLoading() {
     clearTimeout(loadingTimeout);
-    if (resultsEl) resultsEl.innerHTML = '';
+    // 不清空现有结果，避免快速输入时的闪烁；只有超时后仍无新结果才显示 loading
     loadingTimeout = setTimeout(() => {
       if (resultsEl && !resultsEl.children.length) {
         showLoading();
@@ -791,27 +822,13 @@
           ${rightHtml}
         `;
 
-        el.addEventListener('click', (e) => {
-          // 点击操作按钮时不触发整行的"切换标签页"
-          const actionBtn = e.target.closest('.qp-tab-action');
-          if (actionBtn) {
-            e.stopPropagation();
-            handleTabAction(item, actionBtn.dataset.action);
-            return;
-          }
-          executeItem(item);
-        });
-
-        el.addEventListener('mouseenter', () => {
-          selectedIndex = globalIndex;
-          updateSelectionClass();
-        });
-
         groupEl.appendChild(el);
       });
 
       resultsEl.appendChild(groupEl);
     }
+    // 渲染完成后确保选中项在可视区域内
+    scrollSelectedIntoView();
   }
 
   // Tab 行悬停操作：copylink 本地处理，其余交给 background 的 tabAction
@@ -1156,9 +1173,10 @@
   }
 
   function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return String(text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   // 监听来自 background 的打开指令
@@ -1226,4 +1244,7 @@
   try {
     chrome.runtime.sendMessage({ type: 'PING' }, () => void chrome.runtime.lastError);
   } catch (_) { /* 扩展上下文失效时忽略 */ }
+
+  // 测试钩子：仅在自动化测试环境中通过 page.evaluate 调用，不影响正常功能
+  window.__GOFUN_TEST__ = { openPalette, closePalette, isVisible: () => isVisible };
 })();
