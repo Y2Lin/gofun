@@ -167,17 +167,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   color: var(--qp-faint);
   flex-shrink: 0;
 }
 .qp-search-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 #quick-palette-scope {
@@ -197,6 +199,7 @@
 
 #quick-palette-input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   color: var(--qp-text);
   font-size: 19px;
@@ -208,26 +211,32 @@
 #quick-palette-input::placeholder {
   color: var(--qp-faint);
   font-weight: 400;
+  opacity: 0.7;
 }
 
 /* ESC 按钮 */
 .qp-esc-btn {
   flex-shrink: 0;
-  padding: 3px 10px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  line-height: 1;
   color: var(--qp-dim);
   background: var(--qp-kbd-bg);
   border: 1px solid var(--qp-kbd-border);
-  border-radius: 7px;
+  border-radius: 8px;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.1s ease;
 }
 .qp-esc-btn:hover {
   color: var(--qp-text);
   background: var(--qp-hover);
+  border-color: var(--qp-kbd-border);
+}
+.qp-esc-btn:active {
+  transform: scale(0.95);
 }
 
 /* ========= 分类 Tabs ========= */
@@ -260,8 +269,8 @@
   background: var(--qp-hover);
 }
 .qp-tab.qp-active {
-  color: var(--qp-text);
-  background: var(--qp-hover);
+  color: var(--qp-accent);
+  background: var(--qp-accent-soft);
   font-weight: 600;
 }
 
@@ -294,10 +303,18 @@
 
 #quick-palette-empty,
 #quick-palette-loading {
-  padding: 48px 20px;
+  padding: 56px 20px;
   text-align: center;
   color: var(--qp-faint);
   font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+}
+#quick-palette-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .qp-loading-dots {
@@ -326,12 +343,11 @@
   margin: 0;
 }
 .qp-group-label {
-  padding: 12px 14px 6px;
+  padding: 14px 14px 5px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--qp-faint);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* ========= 条目 ========= */
@@ -342,7 +358,11 @@
   padding: 7px 12px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.1s ease;
+  transition: background 0.12s ease;
+}
+/* 同一分组内首个条目与分组标签的间距 */
+.qp-group > .qp-item:first-child {
+  margin-top: 2px;
 }
 .qp-item:hover {
   background: var(--qp-hover);
@@ -361,12 +381,16 @@
   align-items: center;
   justify-content: center;
   color: var(--qp-icon);
+  transition: color 0.12s ease;
 }
 .qp-icon svg {
   width: 18px;
   height: 18px;
   fill: none;
   stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .qp-item.qp-selected .qp-icon {
   color: var(--qp-accent);
@@ -459,12 +483,13 @@
   flex-shrink: 0;
 }
 .qp-shortcuts .qp-alias {
-  padding: 1px 6px;
+  padding: 2px 7px;
   font-size: 11px;
   font-weight: 600;
   color: var(--qp-accent);
   background: var(--qp-accent-soft);
-  border-radius: 4px;
+  border-radius: 5px;
+  letter-spacing: 0.01em;
 }
 .qp-browser-kbd {
   display: inline-flex;
@@ -495,6 +520,16 @@
   flex-shrink: 0;
   margin-left: 8px;
   min-width: 0;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+.qp-item.qp-type-tab:hover .qp-tab-right,
+.qp-item.qp-type-tab.qp-selected .qp-tab-right {
+  opacity: 1;
+}
+/* 非 Tab 行（命令/历史等）的右侧快捷键始终可见 */
+.qp-item:not(.qp-type-tab) .qp-tab-right {
+  opacity: 1;
 }
 .qp-tab-monitor {
   display: inline-flex;
@@ -504,6 +539,7 @@
   height: 22px;
   color: var(--qp-faint);
   opacity: 0.7;
+  transition: opacity 0.14s ease;
 }
 .qp-tab-monitor svg {
   width: 19px;
@@ -511,6 +547,8 @@
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .qp-tab-actions {
   display: none;
@@ -529,7 +567,7 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition: background 0.1s ease, color 0.1s ease, transform 0.1s ease;
 }
 .qp-tab-action svg {
   width: 16px;
@@ -543,6 +581,9 @@
 .qp-tab-action:hover {
   color: var(--qp-text);
   background: var(--qp-hover);
+}
+.qp-tab-action:active {
+  transform: scale(0.9);
 }
 .qp-tab-action-close:hover {
   color: #ff3b30;
@@ -573,13 +614,16 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 .qp-hint-key {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   white-space: nowrap;
+}
+.qp-hint-key kbd + kbd {
+  margin-left: -2px;
 }
 .qp-hint-key em {
   font-style: normal;
@@ -621,9 +665,9 @@
   color: var(--qp-dim);
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 7px;
   cursor: pointer;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.1s ease;
 }
 .qp-settings-btn svg {
   width: 17px;
@@ -635,6 +679,9 @@
 .qp-settings-btn:hover {
   color: var(--qp-text);
   background: var(--qp-hover);
+}
+.qp-settings-btn:active {
+  transform: scale(0.9);
 }
 
 /* ========= 深色模式（跟随系统） ========= */
