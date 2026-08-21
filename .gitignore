@@ -2,3 +2,10 @@
 *.zip
 *.crx
 node_modules/
+.ms-playwright/
+.test-profile/
+.test-profile-dbg/
+.test-profile-dbg2/
+test-results/
+playwright-report/
+trace/
