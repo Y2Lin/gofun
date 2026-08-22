@@ -116,10 +116,7 @@
   }
 
   /* ========= 表单控件 ========= */
-  input[type="text"],
-  input[type="password"],
-  select,
-  textarea {
+  select {
     width: 100%;
     padding: 9px 12px;
     font-size: 14px;
@@ -129,26 +126,15 @@
     border-radius: 12px;
     outline: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-  input[type="text"]:focus,
-  input[type="password"]:focus,
-  select:focus,
-  textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-  textarea {
-    min-height: 96px;
-    resize: vertical;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 13px;
-  }
-  select {
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238e8e93' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
     padding-right: 32px;
+  }
+  select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   /* ========= 主题卡片 ========= */
@@ -280,10 +266,6 @@
     opacity: 1;
   }
 
-  .hidden {
-    display: none;
-  }
-
   @media (max-width: 560px) {
     body {
       padding: 32px 14px 60px;
@@ -347,7 +329,7 @@
   <!-- 搜索 -->
   <section class="section">
     <h2>搜索</h2>
-    <p class="section-desc">调整搜索的数据范围与自定义搜索引擎</p>
+    <p class="section-desc">调整搜索的数据范围</p>
 
     <div class="field">
       <label for="history-days">历史记录范围</label>
@@ -359,71 +341,6 @@
         <option value="365">最近一年</option>
         <option value="0">全部</option>
       </select>
-    </div>
-
-    <div class="field">
-      <label for="search-engines">自定义搜索引擎</label>
-      <textarea id="search-engines" placeholder="g https://www.google.com/search?q=%s&#10;gh https://github.com/search?q=%s&#10;每行一个：缩写 + 空格 + URL（%s 为关键字占位）"></textarea>
-      <p class="hint">每行一个：触发词 + 空格 + 搜索 URL（用 %s 代表关键字）。例如在面板输入 "gh react" 直接用 GitHub 搜索</p>
-    </div>
-  </section>
-
-  <!-- 工具 -->
-  <section class="section">
-    <h2>工具</h2>
-    <p class="section-desc">天气与 RSS 订阅相关配置</p>
-
-    <div class="field">
-      <label for="weather-city">默认天气城市</label>
-      <input type="text" id="weather-city" placeholder="Beijing">
-    </div>
-
-    <div class="field">
-      <label for="rss-feeds">RSS 订阅源</label>
-      <textarea id="rss-feeds" placeholder="https://example.com/feed.xml&#10;每行一个订阅地址"></textarea>
-      <p class="hint">每行填写一个 RSS 地址，空行会被忽略</p>
-    </div>
-
-    <div class="field">
-      <label for="calendar-feeds">日历订阅（ICS）</label>
-      <textarea id="calendar-feeds" placeholder="https://calendar.google.com/calendar/ical/xxx/basic.ics&#10;每行一个 ICS 订阅地址"></textarea>
-      <p class="hint">每行一个 ICS 订阅地址，面板输入 /cal 查看即将开始的日程</p>
-    </div>
-  </section>
-
-  <!-- AI 助手 -->
-  <section class="section">
-    <h2>AI 助手（自带 API Key）</h2>
-    <p class="section-desc">密钥仅保存在你自己的浏览器里，请求直接发往对应服务商</p>
-
-    <div class="field">
-      <label for="ai-provider">服务商</label>
-      <select id="ai-provider">
-        <option value="openai">OpenAI</option>
-        <option value="openrouter">OpenRouter</option>
-        <option value="deepseek">DeepSeek</option>
-        <option value="grok">Grok (xAI)</option>
-        <option value="mistral">Mistral</option>
-        <option value="perplexity">Perplexity</option>
-        <option value="anthropic">Anthropic Claude</option>
-        <option value="gemini">Google Gemini</option>
-        <option value="custom">自定义</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="ai-api-key">API Key</label>
-      <input type="password" id="ai-api-key" placeholder="sk-...">
-    </div>
-
-    <div class="field">
-      <label for="ai-model">模型</label>
-      <input type="text" id="ai-model" placeholder="留空使用默认模型">
-    </div>
-
-    <div class="field hidden" id="ai-base-url-field">
-      <label for="ai-base-url">自定义 Base URL</label>
-      <input type="text" id="ai-base-url" placeholder="https://api.example.com/v1">
     </div>
   </section>
 

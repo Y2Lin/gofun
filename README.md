@@ -6,12 +6,9 @@
 
 - **跨窗口搜索 Tab 页**：搜索所有窗口的标签页并快速切换，当前窗口/活跃标签优先，关键字在标题和 URL 中高亮，跨窗口结果带「其他窗口」标识。
 - **搜索浏览历史 / 书签 / 最近关闭 / 下载记录**：按标题或 URL 模糊搜索。
-- **50+ 内置命令**：新建/关闭/复制/固定/静音标签页、关闭重复/其他/左侧/右侧、按标题排序、按域名分组、合并窗口、挂起其他页、分屏视图、恢复关闭、收藏当前页、缩放、截图、二维码、复制标题/链接/Markdown 等。
+- **51 条内置命令**：新建/关闭/复制/固定/静音标签页、关闭重复/其他/左侧/右侧、按标题排序、按域名分组、合并窗口、挂起其他页、分屏视图、恢复关闭、收藏当前页、缩放、截图、二维码、复制标题/链接/Markdown 等。
 - **页面工具**：区域截图（拖框选）、屏幕取色器（复制 HEX/RGB）、像素尺子（拖拽测距）、复制选中文本、页面媒体控制（播放/暂停/静音/快进快退）。
-- **即时答案**：输入数学表达式、单位/汇率换算、颜色值、时间戳、进制转换、`uuid` 等直接出结果，回车复制。
-- **内置工具**：Emoji 搜索复制、待办清单、天气查询、RSS 阅读器、ICS 日历日程查看、AI 聊天（自带 Key，支持 OpenAI / Claude / Gemini / DeepSeek / Grok / Mistral / Perplexity 等，`@page` 可携带当前页内容）。
-- **自定义搜索引擎**：设置页配置触发词 + URL（如 `g https://www.google.com/search?q=%s`），面板输入 `g 关键字` 直达搜索。
-- **范围限定**：前缀 `/tabs` `/history` `/bookmarks` `/commands` `/closed` `/downloads` `/emoji` `/todo` `/weather` `/rss` `/cal` `/ai` 及缩写 `/t` `/h` `/b` `/c` 等；也支持 TabCmdr 风格冒号前缀（`:t`、`:b`、`:cal`…）。
+- **范围限定**：前缀 `/tabs` `/history` `/bookmarks` `/commands` `/closed` `/downloads` 及缩写 `/t` `/h` `/b` `/c` 等；也支持 TabCmdr 风格冒号前缀（`:t`、`:b`、`:cl`…）。
 - **14 套主题**：跟随系统/浅色/深色/Dracula/Nord/Catppuccin/Tokyo Night/Gruvbox/Solarized/Rosé Pine/One Dark/Monokai/Ayu Dark/Palenight/Everforest，另有紧凑模式、面板位置（居中/靠上/靠下/刘海/四角）设置。
 - **流畅体验**：Tab 缓存秒开、命令快照即时渲染、搜索防抖与竞态丢弃、暗/浅色自动适配。
 
@@ -24,11 +21,12 @@ GoFun 提供**双层快捷键**，普通网页「零配置」即可上手，内�
 - **全页面保底**：`Ctrl + Shift + P`（Windows / Linux）或 `Cmd + Shift + P`（macOS）
   在 `chrome://`、`edge://` 等无法注入脚本的页面里，官方快捷键一定可用。
 - **关闭面板**：`Esc`（或再次按下 `Ctrl+P`）
-- **选择**：`↑` / `↓` / `Tab` / `Shift+Tab`
+- **选择**：`↑` / `↓`
 - **翻页**：`PgUp` / `PgDn`
 - **跳到首 / 尾**：`Ctrl+Home` / `Ctrl+End`（macOS 为 `Cmd+Home` / `Cmd+End`）
 - **确认**：`Enter`
-- **关闭选中标签页**：`Alt + Enter`（对 Tab 结果直接关闭，面板保持打开）
+- **关闭选中标签页**：`Ctrl + W`（Mac 为 `Cmd + W`）或 `Alt + Enter`（对 Tab 结果直接关闭，面板保持打开）
+- **切换分类**：`Tab` / `Shift + Tab`（在顶部分类标签间循环）
 
 > 为什么要有两套？因为 Chrome 把 `Ctrl+P` 硬编码为打印快捷键，扩展无法自动替换它；
 > 但普通网页里 GoFun 会在页面层直接拦截 `Ctrl+P`，因此**绝大多数使用场景下你直接按 `Ctrl+P` 就行**。
@@ -45,12 +43,6 @@ GoFun 提供**双层快捷键**，普通网页「零配置」即可上手，内�
 | `/commands` | `/c` | 仅搜索内置命令 |
 | `/closed` | `/cl` | 仅搜索最近关闭的标签页 |
 | `/downloads` | `/d` | 仅搜索下载记录 |
-| `/emoji` | `/e` | Emoji 搜索 |
-| `/todo` | — | 待办清单 |
-| `/weather` | `/wx` | 天气查询 |
-| `/rss` | — | RSS 阅读器 |
-| `/cal` | — | 日历日程（ICS 订阅） |
-| `/ai` | — | AI 聊天 |
 
 > 提示：输入 `/` 但不匹配任何前缀时，会自动落入 `/commands` 命令搜索模式。
 
@@ -82,7 +74,6 @@ gofun/
 ├── background.js      # Service Worker：搜索与动作执行
 ├── content.js         # 内容脚本：命令面板 UI 与交互
 ├── palette.css        # 面板样式（主题系统 / 位置 / 紧凑模式）
-├── emoji-data.js      # Emoji 数据集
 ├── options.html       # 设置页
 ├── options.js         # 设置页逻辑
 ├── icons/             # 扩展图标（小狗头像，16/32/48/128）
@@ -95,11 +86,46 @@ gofun/
 
 ## 设置
 
-面板内输入 `/opt` 打开设置页，可配置：主题、紧凑模式、面板位置、历史记录天数、默认天气城市、RSS 订阅源、ICS 日历订阅、自定义搜索引擎、AI 服务商与 API Key。所有设置存 `chrome.storage.sync`，跨设备同步；API Key 仅存本地浏览器，不上传任何服务器。
+面板内输入 `/opt` 打开设置页，可配置：主题、紧凑模式、面板位置、历史记录天数。所有设置存 `chrome.storage.sync`，跨设备同步。
 
 ## 自定义命令
 
 如需添加更多内置命令，请编辑 `background.js` 中的 `COMMANDS` 数组（含 `action`），并在 `content.js` 的 `COMMAND_SNAPSHOT` 中添加对应快照项（不含 `action`）。
+
+## 使用技巧
+
+- **快速切换标签页**：直接输入网站名称或标题关键词，回车即跳转到已打开的标签页（跨窗口搜索）
+- **范围前缀提速**：知道要找的内容类型时用前缀缩小范围，如 `/h github` 只搜历史、`/b react` 只搜书签
+- **冒号前缀**：习惯 TabCmdr 风格的用户可用 `:t` `:b` `:cl` `:h` 等冒号前缀，效果等同于 `/t` `/b` `/cl` `/h`
+- **命令缩写**：51 条内置命令都有斜杠缩写，常用的有：
+  - `/n` 新建标签页、`/co` 关闭其他标签页、`/dedup` 关闭重复标签页
+  - `/ss` 截图、`/ssa` 区域截图、`/pick` 屏幕取色、`/ruler` 像素尺子
+  - `/cs` 复制选中文本、`/pp` 播放/暂停媒体、`/mm` 媒体静音
+  - `/opt` 打开设置页、`/ext` 管理扩展、`/dlp` 下载记录
+- **Tab 行操作**：鼠标悬停在 Tab 结果上，右侧会出现操作按钮（关闭/静音/固定/复制/移到新窗口/分组等）
+- **Alt+Enter**：对选中的 Tab 结果按 Alt+Enter 可直接关闭该标签页，面板保持打开
+- **分类 Tab 切换**：按 `Tab` / `Shift+Tab` 可在顶部分类间循环切换，快速过滤搜索范围
+- **键盘导航**：`↑↓` 选择、`Enter` 打开、`Esc` 关闭、`PgUp/PgDn` 翻页、`Ctrl+Home/End` 跳首尾
+
+## 常见问题
+
+**Q: 为什么在 chrome:// 页面按 Ctrl+P 没反应？**
+A: Chrome 限制扩展不能向内置页面注入脚本。`Ctrl+Shift+P` 是官方注册的快捷键，所有页面都能用；`Ctrl+P` 只在普通网页生效。在 chrome:// 页面按 `Ctrl+Shift+P` 或点扩展图标即可。
+
+**Q: 为什么空查询时看不到历史和书签？**
+A: 为了保证面板秒开，空查询只加载标签页和命令。输入任意关键词后，历史和书签会自动加入搜索结果。
+
+**Q: favicon 图标不显示怎么办？**
+A: 默认使用 Google 的 favicon 服务，国内网络可能加载失败。不影响功能，只是图标显示为占位色块。
+
+**Q: 怎么修改快捷键？**
+A: 在浏览器地址栏输入 `chrome://extensions/shortcuts`，找到 GoFun 即可修改 `Ctrl+Shift+P` 快捷键。`Ctrl+P` 和 `Ctrl+K` 是页面级拦截，暂不支持自定义。
+
+**Q: 设置会在多设备间同步吗？**
+A: 会的。主题、位置、紧凑模式、历史天数等设置存在 `chrome.storage.sync`，登录同一 Google 账号的设备会自动同步。
+
+**Q: 面板位置能改吗？**
+A: 可以。打开设置页（输入 `/opt`），可选择居中、靠上、靠下、刘海贴顶、四角等 8 种位置。
 
 ## 注意事项
 
@@ -108,3 +134,27 @@ gofun/
 - Chrome 内置页面（如 `chrome://extensions`、`edge://`）无法注入内容脚本：在这些页面按快捷键 / 点图标，会自动跳转新标签页并打开面板。
 - 历史记录 / 书签的数据量可能非常大；默认在空查询时不拉取历史和书签以确保秒开。输入关键字后会立即加入搜索。
 - 取色器依赖 EyeDropper API（Chrome 95+）；区域截图依赖 `activeTab` 权限，仅能截取当前可视区域。
+
+## 测试
+
+项目包含单元测试（87 条）与 Playwright E2E 测试（21 条），共 108 条。
+
+```bash
+# 安装依赖（仅测试所需）
+npm install
+
+# 单元测试：基于 Node 内置 test runner，零浏览器依赖，~150ms
+npm test
+
+# E2E 测试：真实 Chromium 加载扩展，验证面板交互（首次运行自动下载浏览器，约 5 分钟）
+npm run test:e2e
+
+# 全部一起跑
+npm run test:all
+```
+
+**单元测试**覆盖 `background.js` / `content.js` 中的纯函数：打分算法（14 级）、scope 解析（先长后短）、冒号前缀归一化、HTML 转义、匹配高亮、分类推断、分组标签，以及双端命令一致性（51 条命令 id / client 标记）、manifest 完整性、文档数字同步。
+
+**E2E 测试**在真实 Chromium 中加载扩展，覆盖：面板开关/toggle、首屏渲染、7 个分类 Tab 顺序、搜索/空状态/缩写匹配、匹配高亮、5 种 scope 切换、Tab 点击切换作用域、ArrowUp/Down 选中态、Tab/Shift+Tab 分类切换、命令执行+新标签页、options 页加载、执行后面板关闭。
+
+> 由于 Playwright 自动化 Chromium 在 Windows 下不会自动注入 content script，E2E 通过 `page.addScriptTag` 手动注入 `content.js` + `palette.css`，并提供 mock `chrome.runtime` / `chrome.storage` 以驱动 UI 流程。详见 [`AGENTS.md`](AGENTS.md) 的「测试体系」章节。

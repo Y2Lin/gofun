@@ -1,0 +1,14 @@
+{
+  "name": "gofun",
+  "version": "1.0.0",
+  "description": "GoFun - Chrome/Edge 命令面板扩展",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"tests/unit/**/*.test.js\"",
+    "test:e2e": "playwright test",
+    "test:all": "node --test \"tests/unit/**/*.test.js\" && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}
